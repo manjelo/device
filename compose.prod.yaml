@@ -1,0 +1,21 @@
+# RadioSim: static SPA served by nginx. No database, no uploads, no migrations.
+services:
+  app:
+    build:
+      context: .
+      target: runner
+    restart: unless-stopped
+    networks:
+      proxy:
+        aliases:
+          - radiosim-app
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  proxy:
+    external: true

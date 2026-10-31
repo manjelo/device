@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  RadioSim - right view (side elevation, approximation). V5 material and structure pass.
+  Depth: the body is 104 units deep, the same as the left view (about 43 mm on the front view's scale, matching the published depth with battery; unit model not stated).
+  No control is placed on this view (0 control ids).
+  ASSUMED: the battery pack sits slightly proud of the body at the bottom (about 6 units each side), as on the left view.
+  The recessed black panel with holes (Cryptologic Museum photo) is decorative only. Its position is approximate.
+  UNCERTAIN: the black latch at lower right and the top cap seam are simple shapes. Not confirmed from the photos.
+  Visual styling uses CSS classes. No raster images, fonts, or scripts.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" id="right-view" viewBox="0 0 340 630">
+  <title>Right view</title>
+  <defs>
+    <linearGradient id="right-body" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3f4247"/>
+      <stop offset="0.25" stop-color="#6b7078"/>
+      <stop offset="0.5" stop-color="#8a8e95"/>
+      <stop offset="0.8" stop-color="#5d6168"/>
+      <stop offset="1" stop-color="#32353a"/>
+    </linearGradient>
+    <linearGradient id="right-battery" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2e3238"/>
+      <stop offset="0.5" stop-color="#4b5058"/>
+      <stop offset="1" stop-color="#2a2d32"/>
+    </linearGradient>
+    <linearGradient id="right-panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#15171a"/>
+      <stop offset="1" stop-color="#06070a"/>
+    </linearGradient>
+    <radialGradient id="right-hole" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#40444c"/>
+      <stop offset="1" stop-color="#0c0d10"/>
+    </radialGradient>
+    <pattern id="right-texture" width="6" height="6" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="0.7" fill="#ffffff" fill-opacity="0.07"/>
+      <circle cx="4.5" cy="4.5" r="0.6" fill="#000000" fill-opacity="0.12"/>
+    </pattern>
+    <filter id="right-drop" x="-10%" y="-5%" width="120%" height="115%">
+      <feDropShadow dx="4" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+    <filter id="right-inset" x="-5%" y="-5%" width="110%" height="115%">
+      <feComponentTransfer in="SourceAlpha" result="inv">
+        <feFuncA type="table" tableValues="1 0"/>
+      </feComponentTransfer>
+      <feGaussianBlur in="inv" stdDeviation="2" result="blur"/>
+      <feOffset in="blur" dx="0" dy="2" result="off"/>
+      <feFlood flood-color="#000000" flood-opacity="0.7"/>
+      <feComposite in2="off" operator="in" result="shadow"/>
+      <feComposite in="shadow" in2="SourceAlpha" operator="in" result="inner"/>
+      <feMerge>
+        <feMergeNode in="SourceGraphic"/>
+        <feMergeNode in="inner"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <style>
+    #right-view .body { fill: url(#right-body); stroke: #2b2e33; stroke-width: 2; }
+    #right-view .battery { fill: url(#right-battery); stroke: #22252a; stroke-width: 1.5; }
+    #right-view .seam { fill: #2a2d33; }
+    #right-view .latch { fill: #1c1e21; stroke: #0b0c0e; stroke-width: 1; }
+    #right-view .cap-seam { stroke: #2b2e33; stroke-width: 1.2; stroke-opacity: 0.7; fill: none; }
+    #right-view .bevel { fill: none; stroke: #ffffff; stroke-opacity: 0.25; stroke-width: 1.5; }
+    #right-view .texture { pointer-events: none; }
+    #right-view .groove { stroke: #4a4e54; stroke-width: 2; stroke-linecap: round; }
+    #right-view .panel-recess { fill: url(#right-panel); stroke: #000000; stroke-width: 1.5; filter: url(#right-inset); }
+    #right-view .panel-hole { fill: url(#right-hole); }
+  </style>
+
+  <!-- Body: rounded shoulder at the top (radius about 36), squarer bottom where the battery attaches. Cylindrical side shading. -->
+  <path class="body" filter="url(#right-drop)" d="M 154 40 H 186 Q 222 40 222 76 V 600 Q 222 606 216 606 H 124 Q 118 606 118 600 V 76 Q 118 40 154 40 Z"/>
+  <rect class="bevel" x="126" y="48" width="88" height="550" rx="32"/>
+  <rect class="texture" x="118" y="40" width="104" height="566" rx="40" fill="url(#right-texture)"/>
+  <!-- Top cap seam (UNCERTAIN, decorative) -->
+  <line class="cap-seam" x1="118" y1="70" x2="222" y2="70"/>
+  <!-- Grip grooves (decorative) -->
+  <line class="groove" x1="136" y1="400" x2="204" y2="400"/>
+  <line class="groove" x1="136" y1="414" x2="204" y2="414"/>
+  <line class="groove" x1="136" y1="428" x2="204" y2="428"/>
+
+  <!-- NON-CONTROL: black recessed rectangular panel with holes (Cryptologic Museum photo). Decorative only; no control id. -->
+  <g class="side-panel" aria-hidden="true">
+    <rect class="panel-recess" x="160" y="170" width="44" height="104" rx="4"/>
+    <circle class="panel-hole" cx="172" cy="182" r="2.5"/>
+    <circle class="panel-hole" cx="184" cy="182" r="2.5"/>
+    <circle class="panel-hole" cx="196" cy="182" r="2.5"/>
+    <circle class="panel-hole" cx="172" cy="198" r="2.5"/>
+    <circle class="panel-hole" cx="184" cy="198" r="2.5"/>
+    <circle class="panel-hole" cx="196" cy="198" r="2.5"/>
+    <circle class="panel-hole" cx="172" cy="214" r="2.5"/>
+    <circle class="panel-hole" cx="184" cy="214" r="2.5"/>
+    <circle class="panel-hole" cx="196" cy="214" r="2.5"/>
+    <circle class="panel-hole" cx="172" cy="230" r="2.5"/>
+    <circle class="panel-hole" cx="184" cy="230" r="2.5"/>
+    <circle class="panel-hole" cx="196" cy="230" r="2.5"/>
+    <circle class="panel-hole" cx="172" cy="246" r="2.5"/>
+    <circle class="panel-hole" cx="184" cy="246" r="2.5"/>
+    <circle class="panel-hole" cx="196" cy="246" r="2.5"/>
+    <circle class="panel-hole" cx="172" cy="262" r="2.5"/>
+    <circle class="panel-hole" cx="184" cy="262" r="2.5"/>
+    <circle class="panel-hole" cx="196" cy="262" r="2.5"/>
+  </g>
+
+  <!-- Battery pack (ASSUMED: slightly proud of the body). Seam at its top edge. -->
+  <rect class="seam" x="112" y="459" width="116" height="3" aria-hidden="true"/>
+  <path class="battery" d="M 112 462 H 228 V 598 Q 228 612 214 612 H 126 Q 112 612 112 598 Z" aria-hidden="true"/>
+  <!-- UNCERTAIN: black latch at lower right, simple shape (Cryptologic Museum photo). Decorative. -->
+  <rect class="latch" x="180" y="470" width="40" height="12" rx="3" aria-hidden="true"/>
+</svg>

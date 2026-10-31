@@ -1,0 +1,15 @@
+.git
+.claude
+node_modules
+dist
+test-results
+playwright-report
+coverage
+e2e
+docs
+*.pdf
+.env
+.env.*
+!.env.example
+.vscode
+.idea

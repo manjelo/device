@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  RadioSim - top view, V3 (top end, viewed from above; top of this image is the rear).
+  VERIFIED-PHOTO (Cryptologic Museum): function selector is a rotary dial on the TOP, labelled SCAN, 1, 2, 3, 4, 5, S, F, Z, R.
+  VERIFIED-PHOTO (Cryptologic Museum): two round metal-ringed connectors with black dust caps on the top, either side of the dial.
+  VERIFIED-PHOTO (both photos): whip antenna at top centre-rear.
+  ASSUMED: conn-top is the left connector (which connector is the U-229 is not known). The right connector is NON-CONTROL.
+  ASSUMED: the dial's clockwise label order and pointer start position. Dial-to-channel mapping is Unknown.
+  Antenna connector type (TNC, 50 ohm) is Secondary-source (S5); the photo shows a whip, not the connector.
+  Pin-level behaviour of the U-229 receptacle is not simulated.
+  V4: power, volume and squelch are VISIBLE controls on this view (the front view has none). Their placement is ASSUMED
+  (Unknown on the real radio); the legends are not drawn because the real markings are not known.
+  Visual styling uses CSS classes. No raster images, fonts, scripts, or foreignObject.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" id="top-view" viewBox="0 0 340 150">
+  <title>Top view</title>
+  <defs>
+    <linearGradient id="top-body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8a8e95"/>
+      <stop offset="0.5" stop-color="#5d6168"/>
+      <stop offset="1" stop-color="#3f4247"/>
+    </linearGradient>
+    <linearGradient id="top-antenna" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4a4d53"/>
+      <stop offset="0.5" stop-color="#2a2c30"/>
+      <stop offset="1" stop-color="#1b1d20"/>
+    </linearGradient>
+    <radialGradient id="top-knob" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#c3c7cc"/>
+      <stop offset="0.7" stop-color="#7d8187"/>
+      <stop offset="1" stop-color="#4c5056"/>
+    </radialGradient>
+    <radialGradient id="top-connector" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#b3b7bc"/>
+      <stop offset="1" stop-color="#4f535a"/>
+    </radialGradient>
+    <radialGradient id="top-button" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#d9dcdf"/>
+      <stop offset="1" stop-color="#5d6167"/>
+    </radialGradient>
+    <pattern id="top-texture" width="6" height="6" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="0.7" fill="#ffffff" fill-opacity="0.07"/>
+      <circle cx="4.5" cy="4.5" r="0.6" fill="#000000" fill-opacity="0.12"/>
+    </pattern>
+    <filter id="top-shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <style>
+    #top-view .body { fill: url(#top-body); stroke: #2b2e33; stroke-width: 2; }
+    #top-view .bevel { fill: none; stroke: #ffffff; stroke-opacity: 0.25; stroke-width: 1.5; }
+    #top-view .texture { pointer-events: none; }
+    #top-view .antenna { fill: url(#top-antenna); stroke: #111214; stroke-width: 1; }
+    #top-view .knob { fill: url(#top-knob); stroke: #22242a; stroke-width: 1.5; }
+    #top-view .dial-ring { fill: #3a3d43; stroke: #1b1d21; stroke-width: 1.5; }
+    #top-view .dial-label { font-family: sans-serif; font-size: 9px; font-weight: 700; fill: #f2f2f2; text-anchor: middle; dominant-baseline: central; }
+    #top-view .knob-mark { stroke: #f2f2f2; stroke-width: 2.5; stroke-linecap: round; }
+    #top-view .connector { fill: url(#top-connector); stroke: #22242a; stroke-width: 1.5; }
+    #top-view .cap { fill: #0d0e10; stroke: #000000; stroke-width: 1; }
+    #top-view .button { fill: url(#top-button); stroke: #22242a; stroke-width: 1.5; }
+    #top-view .power-icon { fill: none; stroke: #1d1f22; stroke-width: 2; stroke-linecap: round; }
+    #top-view .hit { fill: transparent; }
+    #top-view .control { cursor: pointer; }
+    #top-view .control:focus { outline: none; }
+    #top-view .control:focus-visible .knob, #top-view .control:focus-visible .connector, #top-view .control:focus-visible .button { stroke: #ffffff; stroke-width: 2.5; }
+    #top-view .control--active .knob { fill: #9a9ea4; }
+    #top-view .control--active .connector { fill: #b0b4ba; }
+    #top-view .control--active .button { fill: #9a9ea4; }
+  </style>
+  <rect class="body" x="16" y="20" width="308" height="110" rx="40"/>
+  <rect class="bevel" x="24" y="28" width="292" height="94" rx="32"/>
+  <rect class="texture" x="16" y="20" width="308" height="110" rx="40" fill="url(#top-texture)"/>
+  <!-- VERIFIED-PHOTO (both photos): antenna, top centre-rear. Connector type TNC 50 ohm is Secondary-source (S5). Hit radius 24 (48 units). -->
+  <g class="control" id="antenna" data-control="antenna" aria-label="Antenna connector TNC 50 ohm">
+    <circle class="hit" cx="170" cy="32" r="24"/>
+    <circle class="antenna" cx="170" cy="32" r="11" filter="url(#top-shadow)"/>
+  </g>
+  <!-- VERIFIED-PHOTO (Cryptologic Museum): rotary function selector on the top, labelled SCAN, 1-5, S, F, Z, R. Dial-to-channel mapping is Unknown. Hit radius 26 (52 units). -->
+  <g class="control" id="knob-channel" data-control="knob-channel" aria-label="Function selector dial">
+    <circle class="hit" cx="170" cy="88" r="26"/>
+    <circle class="dial-ring" cx="170" cy="88" r="30"/>
+    <circle class="knob" cx="170" cy="88" r="22" filter="url(#top-shadow)"/>
+    <line class="knob-mark" x1="170" y1="88" x2="170" y2="72"/>
+    <text class="dial-label" x="141.7" y="116.3">SCAN</text>
+    <text class="dial-label" x="131.4" y="98.4">1</text>
+    <text class="dial-label" x="131.4" y="77.6">2</text>
+    <text class="dial-label" x="141.7" y="59.7">3</text>
+    <text class="dial-label" x="159.6" y="49.4">4</text>
+    <text class="dial-label" x="180.4" y="49.4">5</text>
+    <text class="dial-label" x="198.3" y="59.7">S</text>
+    <text class="dial-label" x="208.6" y="77.6">F</text>
+    <text class="dial-label" x="208.6" y="98.4">Z</text>
+    <text class="dial-label" x="198.3" y="116.3">R</text>
+  </g>
+  <!-- VERIFIED-PHOTO (Cryptologic Museum): round metal-ringed connector with black dust cap, left of the dial. U-229 type is Secondary-source (S4); which connector it is is ASSUMED. Hit area 56 x 56. -->
+  <g class="control" id="conn-top" data-control="conn-top" aria-label="U-229 connector">
+    <rect class="hit" x="72" y="60" width="56" height="56"/>
+    <circle class="connector" cx="100" cy="88" r="14"/>
+    <circle class="cap" cx="100" cy="88" r="9"/>
+  </g>
+  <!-- V4 ASSUMED placement: power push button at the left end of the top. Hit radius 22 (44 units). -->
+  <g class="control" id="power" data-control="power" aria-label="Power">
+    <circle class="hit" cx="48" cy="88" r="22"/>
+    <circle class="button" cx="48" cy="88" r="13" filter="url(#top-shadow)"/>
+    <path class="power-icon" d="M 43.05 83.05 A 7 7 0 1 0 52.95 83.05"/>
+    <line class="power-icon" x1="48" y1="78" x2="48" y2="88"/>
+  </g>
+  <!-- V4 ASSUMED placement: volume knob at the right end, upper. Hit radius 22 (44 units). -->
+  <g class="control" id="knob-volume" data-control="knob-volume" aria-label="Volume knob">
+    <circle class="hit" cx="296" cy="50" r="22"/>
+    <circle class="knob" cx="296" cy="50" r="13" filter="url(#top-shadow)"/>
+    <line class="knob-mark" x1="296" y1="50" x2="296" y2="41"/>
+  </g>
+  <!-- V4 ASSUMED placement: squelch knob at the right end, lower. Hit radius 22 (44 units). -->
+  <g class="control" id="knob-squelch" data-control="knob-squelch" aria-label="Squelch knob">
+    <circle class="hit" cx="296" cy="114" r="22"/>
+    <circle class="knob" cx="296" cy="114" r="13" filter="url(#top-shadow)"/>
+    <line class="knob-mark" x1="296" y1="114" x2="296" y2="105"/>
+  </g>
+  <!-- NON-CONTROL: second round connector with black dust cap, right of the dial (VERIFIED-PHOTO). No control id assigned. -->
+  <g class="top-decor" aria-hidden="true">
+    <circle class="connector" cx="240" cy="88" r="14"/>
+    <circle class="cap" cx="240" cy="88" r="9"/>
+  </g>
+</svg>
