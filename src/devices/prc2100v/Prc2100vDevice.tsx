@@ -20,10 +20,10 @@ const ROWS: Row[] = [
   { control: 'VOLUME', does: 'Audio level 0 to 10', status: 'Verified-photo (label); scale Assumed', keys: '[ and ]' },
   { control: 'Pad up / down', does: 'Previous / next memory channel (1 to 100), following the list on the LCD', status: 'Assumed function (channels Documented)', keys: 'Arrow up / down' },
   { control: 'Pad right / left', does: 'Tune one channel-spacing step up / down', status: 'Assumed function (range and spacing Documented)', keys: 'Arrow right / left' },
-  { control: 'Square key', does: 'Cycle mode FF, FH, DIG (label only, not simulated)', status: 'Assumed function (modes Documented)', keys: 'M' },
+  { control: 'Square key', does: 'Back: leaves password entry, then the setting page', status: 'Assumed function', keys: 'B, Esc, Backspace' },
   { control: 'Round key', does: 'Cycle TX power 0.5, 5, 10 W', status: 'Assumed function (3 settings, 0.5 and 10 W Documented; 5 W Assumed)', keys: 'W' },
-  { control: 'Oval key (third key)', does: 'Open / close the setting page of the selected channel: frequency, H hopping freq, C encryption, S secure (H is a visual flag only; C encrypts and decrypts link voice; S adds a password)', status: 'Assumed function and layout', keys: 'S' },
-  { control: 'Pad and square key on the setting page', does: 'Pad up / down moves the row. F: left / right tunes. H, C, S: left = off, right = on. S on opens the 4-digit password: up / down changes the digit, right moves on (last digit = done), oval or square key = done. The square key toggles channel spacing 25 / 12.5 kHz', status: 'Assumed function (spacings Documented)', keys: 'Arrows, M' },
+  { control: 'Wide (oval) key', does: 'Enter / select: opens the setting page of the selected channel; there it acts on the row (F: toggle spacing 25 / 12.5 kHz, H and C: on / off, S: set the password)', status: 'Assumed function and layout (H is a visual flag only; C encrypts and decrypts link voice; S adds a password)', keys: 'S, Enter' },
+  { control: 'Pad on the setting page', does: 'Up / down moves the row. F: left / right tunes. H, C, S: left = off, right = on. S on opens the 4-digit password: up / down changes the digit, right moves on (last digit = done), wide key = done', status: 'Assumed function (spacings Documented)', keys: 'Arrows' },
   { control: 'PTT button (below the radio)', does: 'Hold to transmit on the link', status: 'Simulator feature: no PTT is visible on the front panel', keys: 'T (hold)' },
   { control: 'XMODE, RADIO, AMP, top-left connectors', does: 'Not interactive', status: 'Verified-photo (label and position only); function Unknown', keys: '-' },
 ];
@@ -159,9 +159,9 @@ export function Prc2100vDevice({ link, onToggleLink }: { link: LinkSettings; onT
           )}
           <text x="324" y="190" fontSize="15" fontWeight="700" fill="#d8dccf" textAnchor="middle" letterSpacing="3" fontFamily="system-ui, sans-serif">SPECTRE V</text>
           {/* Keys under the LCD (unlabeled on the original) */}
-          <Ctl id="key-square" label="Square key (assumed: mode)" onPress={onPress}><rect x="214" y="200" width="34" height="34" rx="5" fill="#2f3528" stroke="#20241b" strokeWidth="2" /></Ctl>
+          <Ctl id="key-square" label="Square key (assumed: back)" onPress={onPress}><rect x="214" y="200" width="34" height="34" rx="5" fill="#2f3528" stroke="#20241b" strokeWidth="2" /></Ctl>
           <Ctl id="key-round" label="Round key (assumed: TX power)" onPress={onPress}><circle cx="288" cy="217" r="18" fill="#2f3528" stroke="#20241b" strokeWidth="2" /></Ctl>
-          <Ctl id="key-oval" label="Oval key (assumed: channel settings)" onPress={onPress}><rect x="322" y="199" width="120" height="36" rx="18" fill="#2f3528" stroke="#20241b" strokeWidth="2" /></Ctl>
+          <Ctl id="key-oval" label="Wide key (assumed: enter / select)" onPress={onPress}><rect x="322" y="199" width="120" height="36" rx="18" fill="#2f3528" stroke="#20241b" strokeWidth="2" /></Ctl>
           {/* Four-way pad */}
           <Ctl id="pad-up" label="Pad up (assumed: previous channel)" onPress={onPress}><rect x="543" y="14" width="34" height="34" rx="6" transform="rotate(45 560 31)" fill="#343a2c" stroke="#20241b" strokeWidth="2" /></Ctl>
           <Ctl id="pad-left" label="Pad left (assumed: tune down)" onPress={onPress}><rect x="503" y="54" width="34" height="34" rx="6" transform="rotate(45 520 71)" fill="#343a2c" stroke="#20241b" strokeWidth="2" /></Ctl>

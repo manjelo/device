@@ -17,9 +17,9 @@ test('picker opens the PRC2100V, which powers on and tunes with the pad', async 
   await expect(display(page)).toContainText('CH 002');
   await page.locator('[data-control="key-oval"]').click();
   await expect(display(page)).toContainText('CH 002 SETTINGS');
-  await page.locator('[data-control="key-square"]').click();
+  await page.locator('[data-control="key-oval"]').click(); // enter on the FREQ row toggles spacing
   await expect(display(page)).toContainText('12.5K');
-  await page.locator('[data-control="key-oval"]').click();
+  await page.locator('[data-control="key-square"]').click(); // back
   await expect(display(page)).not.toContainText('SETTINGS');
 });
 

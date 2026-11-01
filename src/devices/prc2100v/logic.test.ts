@@ -74,13 +74,14 @@ describe('PRC2100V channel window and setting page', () => {
     expect(nums(last)).toEqual(['098', '099', '100', '', '']);
   });
   it('the oval key opens the setting page of the selected channel and closes it again', () => {
-    const open = reduce(on, { type: 'settings-toggle' });
+    const open = reduce(on, { type: 'select' });
     expect(open.screen).toBe('settings');
     expect(renderLcd(open)!.settings.map((r) => r.key)).toEqual(['F', 'H', 'C', 'S']);
-    expect(reduce(open, { type: 'settings-toggle' }).screen).toBe('main');
+    expect(reduce(open, { type: 'back' }).screen).toBe('main');
+    expect(reduce(on, { type: 'back' })).toBe(on); // back on the main screen does nothing
   });
   it('on the setting page pad up/down moves the row and left/right tunes only on the frequency row (other rows set their option)', () => {
-    let s = reduce(on, { type: 'settings-toggle' });
+    let s = reduce(on, { type: 'select' });
     expect(activeFrequencyHz(reduce(s, { type: 'tune', delta: 1 }))).toBe(30_025_000);
     expect(reduce(s, { type: 'channel', delta: -1 }).channel).toBe(1); // up on the first row stays put
     s = reduce(s, { type: 'channel', delta: 1 }); // down
@@ -89,13 +90,13 @@ describe('PRC2100V channel window and setting page', () => {
     expect(reduce(s, { type: 'channel', delta: -1 }).cursor).toBe(0);
   });
   it('is closed by power off and cannot open while keyed', () => {
-    expect(reduce(reduce(on, { type: 'settings-toggle' }), { type: 'power-toggle' }).screen).toBe('main');
-    expect(reduce(reduce(on, { type: 'ptt', down: true }), { type: 'settings-toggle' }).screen).toBe('main');
+    expect(reduce(reduce(on, { type: 'select' }), { type: 'power-toggle' }).screen).toBe('main');
+    expect(reduce(reduce(on, { type: 'ptt', down: true }), { type: 'select' }).screen).toBe('main');
   });
 });
 
 describe('PRC2100V H, C and S options', () => {
-  const open = reduce(on, { type: 'settings-toggle' });
+  const open = reduce(on, { type: 'select' });
   const down = { type: 'channel', delta: 1 } as const;
   const up = { type: 'channel', delta: -1 } as const;
   const right = { type: 'tune', delta: 1 } as const;
@@ -111,7 +112,7 @@ describe('PRC2100V H, C and S options', () => {
   });
   it('options belong to the selected channel only', () => {
     const s = reduce(at(2), right);
-    const other = reduce(reduce(s, { type: 'settings-toggle' }), down);
+    const other = reduce(reduce(s, { type: 'back' }), down);
     expect(activeChannelFlags(other)).toBe('');
   });
   it('C turns on voice scrambling', () => {
@@ -133,14 +134,24 @@ describe('PRC2100V H, C and S options', () => {
     expect(renderLcd(s)!.settings[3].value).toBe('ON ****');
   });
   it('the password changes the scramble seed, so different passwords do not understand each other', () => {
-    const a = reduce(reduce(at(3), right), { type: 'settings-toggle' });
-    const b = reduce(reduce(reduce(at(3), right), up), { type: 'settings-toggle' });
+    const a = reduce(reduce(at(3), right), { type: 'select' });
+    const b = reduce(reduce(reduce(at(3), right), up), { type: 'select' });
     expect(scrambleSeed(a)).not.toBe(scrambleSeed(b));
   });
-  it('oval confirms the password first, and only then closes the page', () => {
+  it('back leaves the password first, and only then closes the page', () => {
     const s = reduce(at(3), right);
-    expect(reduce(s, { type: 'settings-toggle' }).screen).toBe('settings');
-    expect(reduce(reduce(s, { type: 'settings-toggle' }), { type: 'settings-toggle' }).screen).toBe('main');
+    expect(reduce(s, { type: 'back' })).toMatchObject({ screen: 'settings', editing: false });
+    expect(reduce(reduce(s, { type: 'back' }), { type: 'back' }).screen).toBe('main');
+  });
+  it('select acts on the row: F toggles spacing, H and C toggle, S opens the password, and select confirms it', () => {
+    const sel = { type: 'select' } as const;
+    expect(renderLcd(reduce(open, sel))!.spacing).toBe('12.5K');
+    expect(activeChannelFlags(reduce(at(1), sel))).toBe('H');
+    expect(activeChannelFlags(reduce(reduce(at(1), sel), sel))).toBe('');
+    expect(activeChannelFlags(reduce(at(2), sel))).toBe('C');
+    const secure = reduce(at(3), sel);
+    expect(secure).toMatchObject({ editing: true, screen: 'settings' });
+    expect(reduce(secure, sel)).toMatchObject({ editing: false, screen: 'settings' });
   });
 });
 function activeChannelFlags(s: typeof on): string {

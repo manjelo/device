@@ -14,16 +14,16 @@ export function controlAction(id: Prc2100vControl, delta: -1 | 1 = 1): Prc2100vA
     case 'pad-down': return { type: 'channel', delta: 1 };
     case 'pad-right': return { type: 'tune', delta: 1 };
     case 'pad-left': return { type: 'tune', delta: -1 };
-    case 'key-square': return { type: 'cycle-mode' };
+    case 'key-square': return { type: 'back' };
     case 'key-round': return { type: 'cycle-power' };
-    case 'key-oval': return { type: 'settings-toggle' };
+    case 'key-oval': return { type: 'select' };
     case 'ptt': return { type: 'ptt', down: delta === 1 };
   }
 }
 
 const KEYS: Record<string, Prc2100vControl> = {
   p: 'power', ArrowUp: 'pad-up', ArrowDown: 'pad-down', ArrowLeft: 'pad-left', ArrowRight: 'pad-right',
-  m: 'key-square', w: 'key-round', s: 'key-oval',
+  Escape: 'key-square', Backspace: 'key-square', b: 'key-square', w: 'key-round', Enter: 'key-oval', s: 'key-oval',
 };
 
 function isTyping(t: EventTarget | null): boolean {

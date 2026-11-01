@@ -59,7 +59,8 @@ export const SETTING_ROWS = [
 export const CHANNEL_WINDOW = 5;
 
 export type Prc2100vAction =
-  | { type: 'settings-toggle' }
+  | { type: 'select' } // wide (oval) key: enter / select
+  | { type: 'back' } // square key: back
   | { type: 'power-toggle' }
   | { type: 'ptt'; down: boolean }
   | { type: 'channel'; delta: -1 | 1 }
@@ -161,13 +162,25 @@ export function reduce(s: Prc2100vState, a: Prc2100vAction): Prc2100vState {
       return { ...s, powerIdx: (s.powerIdx + 1) % TX_POWER_W.length };
   }
   if (s.mode === 'transmit') return s; // no retuning while keyed
-  // The oval key (or the mode key) confirms a password being edited. Otherwise the oval key opens and closes the page.
-  if (s.editing && (a.type === 'settings-toggle' || a.type === 'cycle-mode')) return { ...s, editing: false, editPos: 0 };
-  if (a.type === 'settings-toggle') return { ...s, screen: s.screen === 'main' ? 'settings' : 'main', cursor: 0 };
+  // Square key = back: leaves password editing, then the setting page.
+  if (a.type === 'back') {
+    if (s.editing) return { ...s, editing: false, editPos: 0 };
+    return s.screen === 'settings' ? { ...s, screen: 'main', cursor: 0 } : s;
+  }
+  // Wide (oval) key = enter / select: opens the setting page; on the page it acts on the row under the cursor.
+  if (a.type === 'select') {
+    if (s.screen === 'main') return { ...s, screen: 'settings', cursor: 0 };
+    const c = activeChannel(s);
+    if (s.editing) return { ...s, editing: false, editPos: 0 };
+    if (s.cursor === 0) return reduce(s, { type: 'cycle-spacing' });
+    if (s.cursor === 1) return withChannel(s, { hop: !c.hop });
+    if (s.cursor === 2) return withChannel(s, { encrypt: !c.encrypt });
+    return { ...withChannel(s, { secure: true }), editing: true, editPos: 0 };
+  }
   if (s.screen === 'settings') {
     // Setting page. Pad up/down moves the row (or changes the password digit while editing). Pad left/right tunes the
     // frequency row, switches H, C and S off (left) or on (right), and moves between password digits while editing.
-    // The mode key (otherwise label-only) toggles the channel spacing, which used to be on the oval key.
+    // Enter (the wide key) toggles the channel spacing on the frequency row, switches H and C, and opens the S password.
     if (a.type === 'channel') {
       if (s.editing) return withChannel(s, { password: stepDigit(activeChannel(s).password, s.editPos, -a.delta) });
       return { ...s, cursor: clamp(s.cursor + a.delta, 0, SETTING_ROWS.length - 1) };
@@ -182,7 +195,6 @@ export function reduce(s: Prc2100vState, a: Prc2100vAction): Prc2100vState {
       }
       return on ? { ...withChannel(s, { secure: true }), editing: true, editPos: 0 } : withChannel(s, { secure: false });
     }
-    if (a.type === 'cycle-mode') a = { type: 'cycle-spacing' };
   }
   switch (a.type) {
     case 'channel':
