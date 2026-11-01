@@ -3,6 +3,7 @@ export {
   initialState,
   reduce,
   activeFrequencyHz,
+  isReceiving,
   createDefaultPresets,
   parseFrequencyEntry,
   menuLength,

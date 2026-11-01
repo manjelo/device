@@ -155,6 +155,17 @@ Navigation keeps the cursor inside the list (no wrap). CLR goes back one level a
 | PTT is released on pointer-up, pointer-cancel, touch cancel, keyboard key-up, window blur, a hidden tab, a view change and power-off | Simulator-specific | Covered by component and end-to-end tests. |
 | PTT works while the keypad is locked; it does nothing while off or in startup | Simulator-specific | |
 
+### Link (radio-to-radio between tabs)
+
+| Behavior | Classification | Note |
+|---|---|---|
+| Radios in tabs of the same browser hear each other. A radio keyed with PTT makes other radios on the same active frequency show the RX indicator and "RECEIVING" | Simulator-specific | Not a documented feature of the original. No RF, audio or key material is involved; only "who is keyed, on which frequency" is shared (BroadcastChannel, same origin). |
+| Matching is on the tuned frequency in Hz, not the preset number | Simulator-specific | Different presets on the same frequency hear each other; the same preset number on different frequencies does not. |
+| A radio receives only while on, past startup and not transmitting itself. Squelch, volume, monitor and keypad lock do not gate it | Simulator-specific (Assumed) | No signal or audio is simulated, so nothing for them to act on. |
+| A keyed radio repeats its signal every second; a sender not heard for 3 seconds is dropped | Simulator-specific | Prevents a stuck RX when a tab closes or freezes. PTT release rules (blur, hidden tab, power off) also release the link. |
+| Link button below the radio cycles Off / this browser / network. Network mode connects to the relay; everyone shares one open room | Simulator-specific | Not a radio control. "This browser" is the tab link (no voice); "network" reaches other devices through the relay service (`docs/relay-design.md`). |
+| In network mode, PTT sends microphone audio (raw 16 kHz PCM, no codec) to every other radio on the relay. A receiving radio plays it only on the same frequency, scaled by the volume setting (0 mutes) | Simulator-specific | No RF, waveform, COMSEC or noise model. Squelch does not gate it. The browser asks for microphone permission; without it the radio can still listen. Needs https or localhost. |
+
 ### Battery
 
 | Behavior | Classification | Note |
@@ -195,7 +206,7 @@ The SVG is approved and was not changed. Differences are documented, not correct
 
 ## 6. Unsupported (not implemented)
 
-Real RF, microphone transmission, radio-to-radio communication, waveforms, COMSEC and TRANSEC, key loading and zeroization, frequency hopping, GPS, SATCOM, tactical network configuration, hardware control, and name editing for presets. COMSEC, Waveform and Other Programming appear in the menus only as marked unavailable entries.
+Real RF, microphone transmission, radio-to-radio communication over a real or networked channel (the tab link in section 3 is a simulator feature only), waveforms, COMSEC and TRANSEC, key loading and zeroization, frequency hopping, GPS, SATCOM, tactical network configuration, hardware control, and name editing for presets. COMSEC, Waveform and Other Programming appear in the menus only as marked unavailable entries.
 
 ## 7. Simulator keyboard shortcuts
 

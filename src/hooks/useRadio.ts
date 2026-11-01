@@ -11,6 +11,8 @@ import {
 } from '../radio';
 import type { ControlId, KnobId, LcdFrame, RadioAction, RadioState } from '../radio';
 import { BATTERY_DRAIN_INTERVAL_MS, OVERLAY_MS } from '../radio/config';
+import { useLink, type LinkSettings, type LinkStatus } from './useLink';
+import type { Transport } from '../net/transport';
 
 /** Placeholder startup length. The real startup timing is Unknown (docs/architecture.md). */
 export const STARTUP_TICK_MS = 1200;
@@ -20,6 +22,8 @@ export type RadioControls = {
   lcd: LcdFrame;
   /** Most recently pressed or turned control, for the info panel. */
   lastControl: ControlId | null;
+  /** Simulator link to other instances (tabs or network). */
+  link: { status: LinkStatus; transport: Transport | null };
   /** Pointer press (or Enter/Space press) on a control. Holds it until released. `pointerId` ties the hold to its pointer. */
   pointerDown: (id: ControlId, pointerId?: number) => void;
   /** Release of a control pressed with pointerDown (keyboard keyup). */
@@ -50,8 +54,11 @@ function isNativeActivatable(target: EventTarget | null): boolean {
 /** A control held by the pointer or the keyboard. `pointer` is the pointer id; null means a keyboard press. */
 type Held = { id: ControlId; pointer: number | null };
 
-export function useRadio(): RadioControls {
+const LINK_OFF: LinkSettings = { mode: 'off' };
+
+export function useRadio(linkSettings: LinkSettings = LINK_OFF): RadioControls {
   const [state, dispatch] = useReducer(reduce, initialState);
+  const link = useLink(state, dispatch, linkSettings);
   const [lastControl, setLastControl] = useState<ControlId | null>(null);
   const heldRef = useRef<Held | null>(null);
   // True while the keyboard PTT key (t) holds the transmit latch. Pointer PTT uses heldRef.
@@ -203,5 +210,5 @@ export function useRadio(): RadioControls {
 
   const lcd = useMemo(() => renderLcd(state), [state]);
 
-  return { state, lcd, lastControl, pointerDown, release, turnKnob, releaseAll };
+  return { state, lcd, lastControl, link, pointerDown, release, turnKnob, releaseAll };
 }

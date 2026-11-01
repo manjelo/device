@@ -38,7 +38,8 @@ MEDIA_VOLUME_OR_PATH n/a
 Additional project-specific facts:
 
 - **Proxy alias**: `radiosim-app` (unique on the shared `proxy` network). The app joins `proxy` only; it does not join `database`.
-- **Stack**: React 19 + Vite + TypeScript SPA (RadioSim, Harris AN/PRC-152 simulator). No backend, no env vars. Dockerfile builds `dist/` and serves it with nginx on 8080 (`runner` target).
+- **Relay (radio-to-radio link)**: second Compose service `relay` (Dockerfile target `relay`, `relay/server.mjs`, Node + `ws`). Internal port 8081, proxy alias `radiosim-relay`, `proxy` network only, no published port, no DB, no volumes, stateless (rooms in memory). Reached only through the app's own nginx: `location = /ws` in `nginx.conf` proxies to `radiosim-relay:8081`, so the shared Nginx needs no change (the wizard's `location /` already forwards Upgrade headers). Healthcheck `GET /health` on 8081. Optional env `RELAY_ALLOWED_ORIGINS` (empty = same-origin check). Design: `docs/relay-design.md`. Keep `runner` the last Dockerfile stage.
+- **Stack**: React 19 + Vite + TypeScript SPA (RadioSim, Harris AN/PRC-152 simulator). No database. One optional env var (`RELAY_ALLOWED_ORIGINS`, relay only). Dockerfile builds `dist/` and serves it with nginx on 8080 (`runner` target).
 - **No secrets**: anything in `VITE_*` is public; never put secrets there.
 - **Tests**: `npm run lint`, `npx tsc -b`, `npm test`, `npm run build`, `npm run test:e2e`.
 - **Deployment**: `deploy.config.sh` at the repo root is sourced by the generic wizard at `../scripts/vps-host.sh`. The full runbook is at `../docs/VPS_PRODUCTION_DEPLOYMENT_RUNBOOK.md`.

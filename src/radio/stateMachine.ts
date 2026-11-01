@@ -82,6 +82,7 @@ export const initialState: RadioState = {
   notice: null,
   // Seq 0 is not audible. The frontend plays a cue only when seq changes from the last value it saw.
   sound: { seq: 0, cue: 'power-off' },
+  heard: {},
 };
 
 /** The frequency of the active preset, in integer Hz. */
@@ -102,6 +103,17 @@ export function parseFrequencyEntry(buffer: string): number | null {
   return hz >= FREQ_MIN_HZ && hz <= FREQ_MAX_HZ ? hz : null;
 }
 
+/**
+ * True while another instance is transmitting on this radio's active frequency. Simulator-specific (Assumed): the
+ * radio must be on and past startup, and not transmitting itself. Squelch, volume, monitor and keypad lock do not
+ * gate it, because no signal or audio is simulated. Nothing is transmitted over RF; see docs/device-functionality-v5.md.
+ */
+export function isReceiving(state: RadioState): boolean {
+  if (!isInteractive(state) || state.mode === 'transmit') return false;
+  const frequencyHz = activeFrequencyHz(state);
+  return Object.values(state.heard).some((hz) => hz === frequencyHz);
+}
+
 /** Number of entries in the open menu level. */
 export function menuLength(state: RadioState): number {
   const menu = state.menu;
@@ -118,7 +130,8 @@ export function reduce(state: RadioState, action: RadioAction): RadioState {
   switch (action.type) {
     case 'reset':
       // Keeps sound.seq so a reset never makes the seq go backwards. Returns the powered-off defaults.
-      return { ...initialState, presets: createDefaultPresets(), sound: state.sound };
+      // The link's heard senders are kept: they describe other instances, not this radio's settings.
+      return { ...initialState, presets: createDefaultPresets(), sound: state.sound, heard: state.heard };
     case 'tick':
       return state.screen === 'startup' ? { ...state, screen: 'main' } : state;
     case 'overlay-clear':
@@ -127,6 +140,8 @@ export function reduce(state: RadioState, action: RadioAction): RadioState {
       return batteryTick(state);
     case 'ptt':
       return reducePtt(state, action.down);
+    case 'rx-signal':
+      return reduceRxSignal(state, action.from, action.frequencyHz, action.active);
     case 'knob':
       return reduceKnob(state, action.id, action.delta);
     case 'control':
@@ -197,6 +212,18 @@ function reducePtt(state: RadioState, down: boolean): RadioState {
   }
   if (state.mode !== 'transmit') return state;
   return withCue({ ...state, mode: 'standby' }, 'ptt-up');
+}
+
+function reduceRxSignal(state: RadioState, from: string, frequencyHz: number, active: boolean): RadioState {
+  // Never changes any setting, only what was heard. A repeat of the same signal returns the same state object.
+  if (!active) {
+    if (!(from in state.heard)) return state;
+    const rest = { ...state.heard };
+    delete rest[from];
+    return { ...state, heard: rest };
+  }
+  if (!Number.isFinite(frequencyHz) || state.heard[from] === frequencyHz) return state;
+  return { ...state, heard: { ...state.heard, [from]: frequencyHz } };
 }
 
 function reduceKnob(state: RadioState, id: KnobId, delta: -1 | 1): RadioState {

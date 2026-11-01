@@ -3,7 +3,7 @@
 // The in-radio LCD and the enlarged preview both render this one frame.
 import { DIAL_POSITIONS, FREQ_ENTRY_DIGITS, FREQ_ENTRY_INTEGER_DIGITS, LOW_BATTERY_PERCENT } from './config';
 import { LIST_WINDOW, MENUS, PRESETS_MENU_TITLE, type MenuItem } from './menus';
-import { activeFrequencyHz, currentMenuId } from './stateMachine';
+import { activeFrequencyHz, currentMenuId, isReceiving } from './stateMachine';
 import type { LcdFrame, LcdRow, RadioState } from './types';
 
 /** Caption for the placeholder LCD area. Required wording from the v2 contract. */
@@ -30,7 +30,7 @@ export function renderLcd(state: RadioState): LcdFrame {
     indicators: {
       power: state.power === 'on',
       tx: state.mode === 'transmit',
-      rx: state.mode === 'receive',
+      rx: isReceiving(state),
       monitor: state.monitor,
       locked: state.locked,
       lowBattery: state.batteryPct <= LOW_BATTERY_PERCENT,
@@ -68,7 +68,14 @@ const pad2 = (n: number): string => String(n).padStart(2, '0');
 
 function mainRows(state: RadioState): LcdRow[] {
   const preset = state.presets[state.preset - 1];
-  const modeText = state.mode === 'transmit' ? 'TRANSMIT' : state.monitor ? 'STANDBY  MON' : 'STANDBY';
+  const modeText =
+    state.mode === 'transmit'
+      ? 'TRANSMIT'
+      : isReceiving(state)
+        ? 'RECEIVING'
+        : state.monitor
+          ? 'STANDBY  MON'
+          : 'STANDBY';
   const rows: LcdRow[] = [
     { text: `PRESET ${pad2(state.preset)}  ${preset.name}`, size: 'small' },
     { text: mhz(activeFrequencyHz(state)), size: 'large' },

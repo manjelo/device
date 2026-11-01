@@ -11,9 +11,11 @@ import {
   activeFrequencyHz,
   createDefaultPresets,
   initialState,
+  isReceiving,
   parseFrequencyEntry,
   reduce,
 } from './stateMachine';
+import { renderLcd } from './lcd';
 import type { ControlId, KnobId, RadioAction, RadioState } from './types';
 
 const UNAVAILABLE_NOTICE = 'UNAVAILABLE IN SIM';
@@ -931,5 +933,61 @@ describe('review fixes (V5)', () => {
     s = run(s, POWER, TICK, BATTERY_TICK);
     expect(s.screen).toBe('main');
     expect(s.batteryPct).toBeGreaterThan(0); // simulated fresh battery on power-on
+  });
+});
+
+describe('radio-to-radio receive (link)', () => {
+  const on = (): RadioState => {
+    let s = reduce(initialState, { type: 'control', id: 'power', event: 'press' });
+    s = reduce(s, { type: 'tick' });
+    return s;
+  };
+  const heardAt = (s: RadioState, from: string, hz = activeFrequencyHz(s)) =>
+    reduce(s, { type: 'rx-signal', from, frequencyHz: hz, active: true });
+
+  it('receives when another instance is keyed on the same frequency', () => {
+    const s = on();
+    expect(isReceiving(s)).toBe(false);
+    expect(isReceiving(heardAt(s, 'a'))).toBe(true);
+  });
+  it('ignores a different frequency, even on the same preset number', () => {
+    const s = on();
+    expect(isReceiving(heardAt(s, 'a', activeFrequencyHz(s) + 1_000))).toBe(false);
+  });
+  it('matches on frequency, not preset number', () => {
+    let s = heardAt(on(), 'a', activeFrequencyHz(on()));
+    s = reduce(s, { type: 'control', id: 'keypad-preset-up', event: 'press' });
+    expect(isReceiving(s)).toBe(false);
+  });
+  it('does not receive while off, in startup, or while transmitting', () => {
+    const hz = activeFrequencyHz(initialState);
+    expect(isReceiving(heardAt(initialState, 'a', hz))).toBe(false);
+    const started = reduce(initialState, { type: 'control', id: 'power', event: 'press' });
+    expect(isReceiving(heardAt(started, 'a', hz))).toBe(false);
+    expect(isReceiving(reduce(heardAt(on(), 'a'), { type: 'ptt', down: true }))).toBe(false);
+  });
+  it('stops receiving when the sender releases, and ignores a release from an unknown sender', () => {
+    const s = heardAt(on(), 'a');
+    const released = reduce(s, { type: 'rx-signal', from: 'a', frequencyHz: 0, active: false });
+    expect(isReceiving(released)).toBe(false);
+    expect(reduce(released, { type: 'rx-signal', from: 'zz', frequencyHz: 0, active: false })).toBe(released);
+  });
+  it('keeps hearing a sender until every sender on the frequency has released', () => {
+    let s = heardAt(heardAt(on(), 'a'), 'b');
+    s = reduce(s, { type: 'rx-signal', from: 'a', frequencyHz: 0, active: false });
+    expect(isReceiving(s)).toBe(true);
+  });
+  it('returns the same state for a repeated heartbeat', () => {
+    const s = heardAt(on(), 'a');
+    expect(heardAt(s, 'a')).toBe(s);
+  });
+  it('shows RX and RECEIVING on the LCD', () => {
+    const lcd = renderLcd(heardAt(on(), 'a'));
+    expect(lcd.indicators.rx).toBe(true);
+    expect(lcd.rows.some((r) => r.text === 'RECEIVING')).toBe(true);
+  });
+  it('keeps heard senders across reset', () => {
+    const s = heardAt(on(), 'a');
+    expect(reduce(s, { type: 'reset' }).heard).toEqual(s.heard);
   });
 });

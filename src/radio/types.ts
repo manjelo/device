@@ -95,12 +95,19 @@ export type RadioState = {
   overlay: Overlay;
   notice: string | null; // short status line for the LCD
   sound: { seq: number; cue: SoundCue }; // seq increments on every audible cue
+  /**
+   * Other simulator instances currently transmitting, as heard over the link: sender id -> the frequency in Hz
+   * they transmit on. Simulator-specific; the original radio has no such state. The radio is receiving when any
+   * entry matches its active frequency (see isReceiving). Survives power cycles and reset.
+   */
+  heard: Record<string, number>;
 };
 
 export type RadioAction =
   | { type: 'control'; id: ControlId; event: ControlEvent }
   | { type: 'knob'; id: KnobId; delta: -1 | 1 }
   | { type: 'ptt'; down: boolean }
+  | { type: 'rx-signal'; from: string; frequencyHz: number; active: boolean } // link: another instance keyed or released
   | { type: 'tick' } // frontend timer; advances the startup screen to main
   | { type: 'overlay-clear' } // frontend timer; removes the temporary volume or squelch indicator
   | { type: 'battery-tick' } // frontend timer; drains the simulated battery while drain is on

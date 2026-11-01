@@ -16,6 +16,37 @@ services:
       retries: 3
       start_period: 10s
 
+  # Radio-to-radio relay. Stateless (rooms are in memory), no database, no volumes, no published ports.
+  # Reached only through the app's nginx (/ws) over the proxy network.
+  relay:
+    build:
+      context: .
+      target: relay
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    environment:
+      # Optional. Comma-separated allowed Origins, e.g. https://radiosim.example.com.
+      # Empty means "same origin as the page" (Origin host must equal the Host header).
+      RELAY_ALLOWED_ORIGINS: ${RELAY_ALLOWED_ORIGINS:-}
+    networks:
+      proxy:
+        aliases:
+          - radiosim-relay
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8081/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 networks:
   proxy:
     external: true
