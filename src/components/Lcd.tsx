@@ -32,20 +32,6 @@ function fitFontSize(text: string, baseCqw: number): string {
  */
 export function LcdInset({ frame }: { frame: LcdFrame }) {
   const { main, second } = insetRows(frame);
-  // The five-channel list is shown unless a notice or volume/squelch overlay needs the status line.
-  const busy = frame.rows.some((r) => (r.kind === 'notice' || r.kind === 'overlay') && r.text);
-  if (frame.channels && !busy) {
-    return (
-      <div className="rs-screen-inset rs-screen-inset--channels" aria-hidden="true" style={brightnessStyle(frame)}>
-        {frame.channels.map((c, i) => (
-          <div key={i} className={c.selected ? 'rs-screen-inset__chan rs-screen-inset__chan--selected' : 'rs-screen-inset__chan'}>
-            <span>{c.text}</span>
-            {c.detail && <span className="rs-screen-inset__main">{c.detail}</span>}
-          </div>
-        ))}
-      </div>
-    );
-  }
   return (
     <div className="rs-screen-inset" aria-hidden="true" style={brightnessStyle(frame)}>
       {main && (

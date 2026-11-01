@@ -132,17 +132,9 @@ export type LcdIndicators = {
   battery: number;
 };
 
-/** One slot of the five-channel window on the main screen. Blank slots (before preset 1, after the last) have empty text. */
-export type LcdChannel = {
-  text: string; // "NN name", or '' for a blank slot
-  detail?: string; // frequency, only on the selected slot
-  selected: boolean;
-};
-
 export type LcdFrame = {
   screen: Screen;
   rows: LcdRow[]; // each row: { text, inverse?, size }
-  channels?: LcdChannel[]; // main and locked screens only: 5 presets, the active one in the middle (index 2)
   indicators: LcdIndicators;
   brightness: number; // 0 when off, otherwise 1..5. Both displays apply it.
   label: string; // caption for the placeholder area

@@ -436,24 +436,3 @@ describe('insetRows: the two rows the in-radio display shows', () => {
     expect(insetRows(renderLcd(initialState))).toEqual({ main: undefined, second: undefined });
   });
 });
-
-describe('renderLcd: five-channel window', () => {
-  const texts5 = (preset: number) => renderLcd({ ...main(), preset }).channels?.map((c) => c.text.split(' ')[0]);
-
-  it('Assumed: five presets are shown with the active one in the middle', () => {
-    expect(texts5(50)).toEqual(['48', '49', '50', '51', '52']);
-    const ch = renderLcd({ ...main(), preset: 50 }).channels ?? [];
-    expect(ch.map((c) => c.selected)).toEqual([false, false, true, false, false]);
-    expect(ch[2].detail).toMatch(/MHz$/);
-  });
-
-  it('Assumed: slots before preset 1 and after the last preset stay blank, keeping the active one centred', () => {
-    expect(texts5(1)).toEqual(['', '', '01', '02', '03']);
-    expect(texts5(PRESET_COUNT)).toEqual(['98', '99', '100', '', '']);
-  });
-
-  it('has no channel window when the radio is off or in a menu', () => {
-    expect(renderLcd({ ...main(), screen: 'off' }).channels).toBeUndefined();
-    expect(renderLcd(run(main(), digit('8'))).channels).toBeUndefined();
-  });
-});
