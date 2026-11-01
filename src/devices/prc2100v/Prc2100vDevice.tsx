@@ -17,7 +17,7 @@ type Row = { control: string; does: string; status: string; keys: string };
 const ROWS: Row[] = [
   { control: 'PWR switch', does: 'Power on / off', status: 'Verified-photo (label and position only)', keys: 'P' },
   { control: 'VOLUME', does: 'Audio level 0 to 10', status: 'Verified-photo (label); scale Assumed', keys: '[ and ]' },
-  { control: 'Pad up / down', does: 'Next / previous memory channel (1 to 100)', status: 'Assumed function (channels Documented)', keys: 'Arrow up / down' },
+  { control: 'Pad up / down', does: 'Previous / next memory channel (1 to 100), following the list on the LCD', status: 'Assumed function (channels Documented)', keys: 'Arrow up / down' },
   { control: 'Pad right / left', does: 'Tune one channel-spacing step up / down', status: 'Assumed function (range and spacing Documented)', keys: 'Arrow right / left' },
   { control: 'Square key', does: 'Cycle mode FF, FH, DIG (label only, not simulated)', status: 'Assumed function (modes Documented)', keys: 'M' },
   { control: 'Round key', does: 'Cycle TX power 0.5, 5, 10 W', status: 'Assumed function (3 settings, 0.5 and 10 W Documented; 5 W Assumed)', keys: 'W' },
@@ -161,10 +161,10 @@ export function Prc2100vDevice({ link, onToggleLink }: { link: LinkSettings; onT
           <Ctl id="key-round" label="Round key (assumed: TX power)" onPress={onPress}><circle cx="288" cy="217" r="18" fill="#2f3528" stroke="#20241b" strokeWidth="2" /></Ctl>
           <Ctl id="key-oval" label="Oval key (assumed: channel settings)" onPress={onPress}><rect x="322" y="199" width="120" height="36" rx="18" fill="#2f3528" stroke="#20241b" strokeWidth="2" /></Ctl>
           {/* Four-way pad */}
-          <Ctl id="pad-up" label="Pad up (assumed: next channel)" onPress={onPress}><rect x="543" y="14" width="34" height="34" rx="6" transform="rotate(45 560 31)" fill="#343a2c" stroke="#20241b" strokeWidth="2" /></Ctl>
+          <Ctl id="pad-up" label="Pad up (assumed: previous channel)" onPress={onPress}><rect x="543" y="14" width="34" height="34" rx="6" transform="rotate(45 560 31)" fill="#343a2c" stroke="#20241b" strokeWidth="2" /></Ctl>
           <Ctl id="pad-left" label="Pad left (assumed: tune down)" onPress={onPress}><rect x="503" y="54" width="34" height="34" rx="6" transform="rotate(45 520 71)" fill="#343a2c" stroke="#20241b" strokeWidth="2" /></Ctl>
           <Ctl id="pad-right" label="Pad right (assumed: tune up)" onPress={onPress}><rect x="583" y="54" width="34" height="34" rx="6" transform="rotate(45 600 71)" fill="#343a2c" stroke="#20241b" strokeWidth="2" /></Ctl>
-          <Ctl id="pad-down" label="Pad down (assumed: previous channel)" onPress={onPress}><rect x="543" y="94" width="34" height="34" rx="6" transform="rotate(45 560 111)" fill="#343a2c" stroke="#20241b" strokeWidth="2" /></Ctl>
+          <Ctl id="pad-down" label="Pad down (assumed: next channel)" onPress={onPress}><rect x="543" y="94" width="34" height="34" rx="6" transform="rotate(45 560 111)" fill="#343a2c" stroke="#20241b" strokeWidth="2" /></Ctl>
           {/* Lower row. Printed labels are on the original. */}
           <g fontSize="13" fontWeight="700" fill="#d8dccf" textAnchor="middle" fontFamily="system-ui, sans-serif" aria-hidden="true">
             <text x="82" y="270">PWR</text><text x="170" y="270">VOLUME</text><text x="262" y="270">XMODE</text>

@@ -82,11 +82,11 @@ describe('PRC2100V channel window and setting page', () => {
   it('on the setting page pad up/down moves the row and left/right tunes only on the frequency row', () => {
     let s = reduce(on, { type: 'settings-toggle' });
     expect(activeFrequencyHz(reduce(s, { type: 'tune', delta: 1 }))).toBe(30_025_000);
-    expect(reduce(s, { type: 'channel', delta: 1 }).channel).toBe(1);
-    s = reduce(s, { type: 'channel', delta: -1 }); // down
+    expect(reduce(s, { type: 'channel', delta: -1 }).channel).toBe(1); // up on the first row stays put
+    s = reduce(s, { type: 'channel', delta: 1 }); // down
     expect(s.cursor).toBe(1);
     expect(reduce(s, { type: 'tune', delta: 1 })).toBe(s);
-    expect(reduce(s, { type: 'channel', delta: 1 }).cursor).toBe(0);
+    expect(reduce(s, { type: 'channel', delta: -1 }).cursor).toBe(0);
   });
   it('is closed by power off and cannot open while keyed', () => {
     expect(reduce(reduce(on, { type: 'settings-toggle' }), { type: 'power-toggle' }).screen).toBe('main');

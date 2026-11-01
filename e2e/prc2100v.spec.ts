@@ -13,7 +13,7 @@ test('picker opens the PRC2100V, which powers on and tunes with the pad', async 
 
   await page.locator('[data-control="pad-right"]').click();
   await expect(display(page)).toContainText('30.025 MHz');
-  await page.locator('[data-control="pad-up"]').click();
+  await page.locator('[data-control="pad-down"]').click();
   await expect(display(page)).toContainText('CH 002');
   await page.locator('[data-control="key-oval"]').click();
   await expect(display(page)).toContainText('CH 002 SETTINGS');

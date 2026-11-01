@@ -10,8 +10,8 @@ export function controlAction(id: Prc2100vControl, delta: -1 | 1 = 1): Prc2100vA
   switch (id) {
     case 'power': return { type: 'power-toggle' };
     case 'volume': return { type: 'volume', delta };
-    case 'pad-up': return { type: 'channel', delta: 1 };
-    case 'pad-down': return { type: 'channel', delta: -1 };
+    case 'pad-up': return { type: 'channel', delta: -1 };
+    case 'pad-down': return { type: 'channel', delta: 1 };
     case 'pad-right': return { type: 'tune', delta: 1 };
     case 'pad-left': return { type: 'tune', delta: -1 };
     case 'key-square': return { type: 'cycle-mode' };

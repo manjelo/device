@@ -127,7 +127,7 @@ export function reduce(s: Prc2100vState, a: Prc2100vAction): Prc2100vState {
   if (s.screen === 'settings') {
     // On the setting page the pad up/down moves the row cursor, left/right tunes on the frequency row, and the mode
     // key (otherwise label-only) toggles the channel spacing, which used to be on the oval key.
-    if (a.type === 'channel') return { ...s, cursor: clamp(s.cursor - a.delta, 0, SETTING_ROWS.length - 1) };
+    if (a.type === 'channel') return { ...s, cursor: clamp(s.cursor + a.delta, 0, SETTING_ROWS.length - 1) };
     if (a.type === 'tune' && s.cursor !== 0) return s;
     if (a.type === 'cycle-mode') a = { type: 'cycle-spacing' };
   }
