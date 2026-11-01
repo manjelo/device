@@ -3,7 +3,7 @@ import { insetRows, type LcdFrame, type Screen } from '../radio';
 
 /** Simulator key hints shown under the LCD. Simulator conveniences, not device text. */
 const HINTS: Partial<Record<Screen, string>> = {
-  main: 'Key 7 opens OPT, key 8 opens PGM. PRE + and PRE - change the preset.',
+  main: 'Key 7 opens OPT, key 8 opens PGM. + and - tune the frequency in 25 kHz steps.',
   menu: 'PRE + / PRE - or the channel dial move the cursor. ENT selects. CLR goes back.',
   edit: 'Type six digits (MMM.KKK MHz). ENT checks the entry. CLR clears it, then goes back.',
   confirm: 'ENT=yes CLR=no',

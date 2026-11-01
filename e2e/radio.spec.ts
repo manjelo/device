@@ -265,21 +265,19 @@ test.describe('keypad and menus', () => {
 });
 
 test.describe('presets and frequency', () => {
-  test('PRE + and PRE - change the active preset and the LCD updates at once', async ({ page }) => {
+  test('+ and - retune the active preset by 25 kHz and the LCD updates at once', async ({ page }) => {
     await powerOnToMain(page);
     await control(page, 'keypad-preset-up').click();
-    await expect(lcd(page)).toHaveText(/PRESET 02/);
-    await expect(lcd(page)).toContainText('CHAN 02');
-    await expect(lcd(page)).toContainText('34.500 MHz');
-    await control(page, 'keypad-preset-down').click();
-    await control(page, 'keypad-preset-down').click();
     await expect(lcd(page)).toHaveText(/PRESET 01/);
+    await expect(lcd(page)).toContainText('30.025 MHz');
+    await control(page, 'keypad-preset-down').click();
+    await control(page, 'keypad-preset-down').click();
     await expect(lcd(page)).toContainText('30.000 MHz');
 
-    // Past preset 5 the keys keep stepping the stored presets and never touch the dial.
+    // Many presses keep tuning the same preset and never touch the dial.
     for (let i = 0; i < 6; i += 1) await control(page, 'keypad-preset-up').click();
-    await expect(lcd(page)).toHaveText(/PRESET 07/);
-    await expect(lcd(page)).toContainText('CHAN 07');
+    await expect(lcd(page)).toHaveText(/PRESET 01/);
+    await expect(lcd(page)).toContainText('30.150 MHz');
     await expect(lcd(page)).toContainText('DIAL 1');
     await expect(lcd(page)).not.toContainText('N/A');
   });
@@ -295,52 +293,52 @@ test.describe('presets and frequency', () => {
     // A dial position with no preset is shown as not supported and leaves the preset alone.
     for (let i = 0; i < 3; i += 1) await page.keyboard.press('ArrowUp');
     await expect(lcd(page)).toContainText('DIAL S');
-    await expect(lcd(page)).toContainText('N/A');
+    await expect(lcd(page)).toContainText('S: SCAN CHANNELS');
     await expect(lcd(page)).toHaveText(/PRESET 05/);
   });
 
   test('edits a preset frequency, saves it, and the value survives view changes and a power cycle', async ({ page }) => {
     await powerOnToMain(page);
     await openPresetFrequencyEdit(page, 3);
-    await typeDigits(page, '150000');
-    await expect(lcd(page)).toContainText('150.000 MHz');
+    await typeDigits(page, '450000');
+    await expect(lcd(page)).toContainText('450.000 MHz');
     await control(page, 'keypad-enter').click();
-    await expect(lcd(page)).toContainText('NEW 150.000 MHz');
+    await expect(lcd(page)).toContainText('NEW 450.000 MHz');
     await expect(lcd(page)).toContainText('Apply? ENT=yes CLR=no');
     await control(page, 'keypad-enter').click();
     await expect(lcd(page)).toContainText('SAVED');
-    await expect(cursorRow(page)).toHaveText(/^Frequency\s+150\.000 MHz/);
+    await expect(cursorRow(page)).toHaveText(/^Frequency\s+450\.000 MHz/);
 
     // Back to the main screen and select preset 3.
     for (let i = 0; i < 4; i += 1) await control(page, 'keypad-clear').click();
     await expect(lcd(page)).toHaveText(/PRESET 01/);
-    await control(page, 'keypad-preset-up').click();
-    await control(page, 'keypad-preset-up').click();
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowUp');
     await expect(lcd(page)).toHaveText(/PRESET 03/);
-    await expect(lcd(page)).toContainText('150.000 MHz');
+    await expect(lcd(page)).toContainText('450.000 MHz');
     await expectInsetFits(page);
 
     // Switching views changes nothing.
     for (const view of ['Left', 'Right', 'Top', 'Front']) {
       await page.getByRole('button', { name: view, exact: true }).click();
     }
-    await expect(lcd(page)).toContainText('150.000 MHz');
-    await expect(page.locator('.rs-screen-inset__main')).toHaveText('150.000 MHz');
+    await expect(lcd(page)).toContainText('450.000 MHz');
+    await expect(page.locator('.rs-screen-inset__main')).toHaveText('450.000 MHz');
 
     // A power cycle keeps the saved preset.
     await togglePower(page);
     await expect(lcd(page)).toHaveText('');
     await togglePower(page);
     await expect(lcd(page)).toHaveText(/PRESET 03/, { timeout: 5_000 });
-    await expect(lcd(page)).toContainText('150.000 MHz');
+    await expect(lcd(page)).toContainText('450.000 MHz');
   });
 
   test('CLR at the confirm screen cancels and leaves the saved value unchanged', async ({ page }) => {
     await powerOnToMain(page);
     await openPresetFrequencyEdit(page, 3);
-    await typeDigits(page, '200000');
+    await typeDigits(page, '300000');
     await control(page, 'keypad-enter').click();
-    await expect(lcd(page)).toContainText('NEW 200.000 MHz');
+    await expect(lcd(page)).toContainText('NEW 300.000 MHz');
     await control(page, 'keypad-clear').click();
     await expect(cursorRow(page)).toHaveText(/^Frequency\s+39\.000 MHz/);
     await expect(lcd(page)).not.toContainText('SAVED');
@@ -403,7 +401,7 @@ test.describe('keypad lock', () => {
 
     // Keys and the preset keys do nothing while locked.
     await control(page, 'keypad-preset-up').click();
-    await expect(lcd(page)).toHaveText(/PRESET 01/);
+    await expect(lcd(page)).toContainText('30.000 MHz');
     await control(page, 'keypad-8').click();
     await expect(lcd(page)).not.toContainText('PROGRAM');
 
@@ -422,7 +420,7 @@ test.describe('keypad lock', () => {
     await expect(lcd(page)).not.toContainText('KEYPAD LOCKED');
     await expect(lcd(page).locator('.rs-lcd__ind', { hasText: /^LOCK$/ })).toHaveCount(0);
     await control(page, 'keypad-preset-up').click();
-    await expect(lcd(page)).toHaveText(/PRESET 02/);
+    await expect(lcd(page)).toContainText('30.025 MHz');
   });
 
   test('a power cycle clears the lock', async ({ page }) => {
@@ -590,11 +588,11 @@ test.describe('mobile touch', () => {
     await page.getByRole('button', { name: 'Front' }).tap();
     await expect(lcd(page)).toHaveText(/PRESET 01/, { timeout: 5_000 });
     await control(page, 'keypad-preset-up').tap();
-    await expect(lcd(page)).toHaveText(/PRESET 02/);
+    await expect(lcd(page)).toContainText('30.025 MHz');
     await control(page, 'keypad-7').tap();
     await expect(lcd(page)).toContainText('OPTIONS (simulator)');
     await control(page, 'keypad-clear').tap();
-    await expect(lcd(page)).toHaveText(/PRESET 02/);
+    await expect(lcd(page)).toContainText('30.025 MHz');
   });
 });
 

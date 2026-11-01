@@ -64,7 +64,7 @@ Every frame carries `label: "Simulated LCD (layout approximated)"`, and `approxi
 | key 7 / key 8 | main | open the OPT / PGM menu (Secondary-source: ACRE2) |
 | other digit | main | notice `NOT USED HERE`, cue `error` |
 | ENT | main | none |
-| PRE +/- | main | active preset +1 / -1, clamped 1..100 |
+| + / - (PRE) | main | retune the active preset by +25 / -25 kHz; hops the VHF/UHF gap, stops at 30.000 and 511.975 MHz |
 | PRE +/- | menu | cursor down / up, clamped |
 | dial turn | main | dial position moves 0..9; positions 1-5 set preset 1-5; others set notice `DIAL x N/A` |
 | dial turn | menu | cursor moves |
@@ -88,7 +88,7 @@ Power-off clears `mode`, `locked`, `unlockStage`, `menu`, `edit`, `pendingConfir
 
 ## Frequency
 
-Stored as integer Hz. The entry is a digit string of exactly six digits read as MMM.KKK MHz, so the entry increment is 1 kHz (Simulator-specific). The device tuning resolution is `FREQ_STEP_HZ` (10 Hz, Secondary-source); every entered value is a multiple of it. The band is 30.000 to 512.000 MHz (sources conflict; see `config.ts`). Nothing is saved until ENT on the confirm screen.
+Stored as integer Hz. The entry is a digit string of exactly six digits read as MMM.KKK MHz, so the entry increment is 1 kHz (Simulator-specific). The device tuning resolution is `FREQ_STEP_HZ` (10 Hz, Secondary-source); every entered value is a multiple of it. The radio is multiband (user-supplied specification, `BANDS` in `config.ts`): VHF 30.000 to 87.975 MHz and UHF 225.000 to 511.975 MHz. The gap between them is not tunable and an entry there shows OUT OF RANGE. Default presets 1-13 are VHF (30.0 to 84.0 MHz); 14-100 are UHF (225.0 to 508.8 MHz). Nothing is saved until ENT on the confirm screen.
 
 ## Simulator keyboard shortcuts
 

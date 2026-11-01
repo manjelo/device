@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { ControlId, KnobId } from '../radio';
-import { DIAL_POSITIONS, SQUELCH_MAX, SQUELCH_MIN, VOLUME_MAX, VOLUME_MIN } from '../radio/config';
+import { DIAL_DESCRIPTIONS, DIAL_POSITIONS, SQUELCH_MAX, SQUELCH_MIN, VOLUME_MAX, VOLUME_MIN } from '../radio/config';
 import type { RadioControls } from '../hooks/useRadio';
 import { Lcd, LcdInset } from './Lcd';
 import { getViewSvg } from './radioSvg';
@@ -43,7 +43,11 @@ function syncKnobValues(host: HTMLElement, state: RadioControls['state']): void 
     el.setAttribute('aria-valuemax', String(max));
     el.setAttribute('aria-valuenow', String(now));
     // The dial reads out its label (SCAN, 1 to 5, S, F, Z, R) instead of a bare index.
-    if (id === 'knob-channel') el.setAttribute('aria-valuetext', `Position ${DIAL_POSITIONS[now]}`);
+    if (id === 'knob-channel') {
+      const label = DIAL_POSITIONS[now];
+      const description = DIAL_DESCRIPTIONS[label];
+      el.setAttribute('aria-valuetext', description ? `Position ${label}: ${description}` : `Position ${label}`);
+    }
   }
 }
 

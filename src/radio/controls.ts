@@ -25,7 +25,7 @@ export const CONTROL_ACCURACY: Record<ControlId, Accuracy> = {
   'keypad-hash': 'Unknown',
   'keypad-clear': 'Assumed',
   'keypad-enter': 'Assumed',
-  // V5: PRE + and PRE - keys. Behaviour is a one-step preset change (Assumed); the placement is Unknown.
+  // V5: PRE + and PRE - keys. Behaviour is a 25 kHz frequency step on the main screen (Assumed, user-supplied); the placement is Unknown.
   'keypad-preset-up': 'Assumed',
   'keypad-preset-down': 'Assumed',
   // REMOVED V3: not on original hardware evidence. Kept only so the ids stay valid; no front-panel action.
@@ -58,8 +58,8 @@ export const CONTROL_LABEL: Record<ControlId, string> = {
   'keypad-hash': 'Key #',
   'keypad-clear': 'Clear (CLR)',
   'keypad-enter': 'Enter (ENT)',
-  'keypad-preset-up': 'Preset up (+)',
-  'keypad-preset-down': 'Preset down (−)',
+  'keypad-preset-up': 'Tune up 25 kHz (+)',
+  'keypad-preset-down': 'Tune down 25 kHz (−)',
   'fn-1': 'Function key F1',
   'fn-2': 'Function key F2',
   'fn-3': 'Function key F3',

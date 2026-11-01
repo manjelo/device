@@ -13,7 +13,7 @@ export function controlToAction(id: ControlId, event: ControlEvent): RadioAction
     return null;
   }
   if (id === 'knob-channel' || id === 'knob-volume' || id === 'knob-squelch') return null;
-  // V5: PRE + and PRE - are keys. The reducer steps the stored preset on the main screen (clamped 1..100) and moves the
+  // V5: PRE + and PRE - are keys. The reducer tunes the active preset by 25 kHz on the main screen (see stepFrequency) and moves the
   // cursor in a menu. They are not dial turns: the dial is a separate control from the stored presets.
   if (id === 'keypad-preset-up' || id === 'keypad-preset-down') {
     return event === 'press' ? { type: 'control', id, event } : null;

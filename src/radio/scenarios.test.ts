@@ -40,7 +40,7 @@ function atPresetList(state: RadioState): RadioState {
 }
 
 describe('scenario: program a preset and select it (Secondary-source menu path, Assumed frequency rules)', () => {
-  it('Assumed: power on, PGM, set preset 3 to 150.000 MHz with ENT confirm, back to main, select preset 3, then power cycle keeps the preset', () => {
+  it('Assumed: power on, PGM, set preset 3 to 450.000 MHz with ENT confirm, back to main, select preset 3, then power cycle keeps the preset', () => {
     // Power on and reach the main screen.
     let s = powerOnToMain();
     expect(s.screen).toBe('main');
@@ -57,23 +57,23 @@ describe('scenario: program a preset and select it (Secondary-source menu path, 
     expect(s.menu?.path).toEqual(['pgm', 'pgm.system', 'pgm.presets', 'pgm.preset']);
     expect(s.menu?.target).toBe(2);
 
-    // ENT on Frequency opens the edit. Type 150000 (150.000 MHz), ENT for the confirm, ENT to apply.
+    // ENT on Frequency opens the edit. Type 450000 (450.000 MHz), ENT for the confirm, ENT to apply.
     s = run(s, ENT);
     expect(s.screen).toBe('edit');
-    s = run(type(s, '150000'), ENT, ENT);
+    s = run(type(s, '450000'), ENT, ENT);
     expect(s.screen).toBe('menu');
     expect(s.notice).toBe('SAVED');
-    expect(s.presets[2].frequencyHz).toBe(150_000_000);
+    expect(s.presets[2].frequencyHz).toBe(450_000_000);
 
     // CLR back up to the main screen (pgm.preset -> presets -> system -> PGM -> main).
     s = run(s, CLR, CLR, CLR, CLR);
     expect(s.screen).toBe('main');
     expect(s.menu).toBeNull();
 
-    // Select preset 3 on the main screen with PRE + twice. The big row shows the new frequency.
-    s = run(s, PRE_UP, PRE_UP);
+    // Select preset 3 on the main screen with the dial (two clicks). The big row shows the new frequency.
+    s = run(s, knob('knob-channel', 1), knob('knob-channel', 1));
     expect(s.preset).toBe(3);
-    expect(bigRow(s)).toBe('150.000 MHz');
+    expect(bigRow(s)).toBe('450.000 MHz');
 
     // A no-op action leaves the state object unchanged (a view switch is a UI concern, so only the reducer is checked).
     expect(reduce(s, TICK)).toBe(s);
@@ -83,11 +83,11 @@ describe('scenario: program a preset and select it (Secondary-source menu path, 
     expect(off.screen).toBe('off');
     const on = run(off, POWER, TICK);
     expect(on.screen).toBe('main');
-    expect(on.presets[2].frequencyHz).toBe(150_000_000);
+    expect(on.presets[2].frequencyHz).toBe(450_000_000);
     expect(on.menu).toBeNull();
     expect(on.edit).toBeNull();
     expect(on.pendingConfirm).toBeNull();
-    expect(bigRow(on)).toBe('150.000 MHz');
+    expect(bigRow(on)).toBe('450.000 MHz');
   });
 });
 
@@ -96,7 +96,7 @@ describe('scenario: cancelling a confirm leaves the preset unchanged (Assumed)',
     let s = powerOnToMain();
     s = atPresetList(s);
     s = run(s, PRE_UP, PRE_UP, ENT, ENT);
-    s = run(type(s, '150000'), ENT);
+    s = run(type(s, '450000'), ENT);
     expect(s.screen).toBe('confirm');
     s = run(s, CLR);
     expect(s.screen).toBe('menu');
@@ -105,7 +105,7 @@ describe('scenario: cancelling a confirm leaves the preset unchanged (Assumed)',
     // Select preset 3 on the main screen and check the big row still shows the default.
     s = run(s, CLR, CLR, CLR, CLR);
     expect(s.screen).toBe('main');
-    s = run(s, PRE_UP, PRE_UP);
+    s = run(s, knob('knob-channel', 1), knob('knob-channel', 1));
     expect(bigRow(s)).toBe('39.000 MHz');
   });
 });
@@ -127,8 +127,8 @@ describe('scenario: invalid frequency entries are rejected and nothing is saved 
     expect(s.screen).toBe('edit');
     expect(s.notice).toBe('OUT OF RANGE');
 
-    // Out of range (512.001 MHz).
-    s = run(run(s, CLR), ...[...'512001'].map(digit), ENT);
+    // Out of range (150.000 MHz, in the VHF/UHF gap).
+    s = run(run(s, CLR), ...[...'150000'].map(digit), ENT);
     expect(s.notice).toBe('OUT OF RANGE');
     expect(s.pendingConfirm).toBeNull();
     expect(s.presets).toEqual(createDefaultPresets());
@@ -144,8 +144,8 @@ describe('scenario: uncommitted edit is discarded by power off (Assumed)', () =>
   it('power off during an edit discards the typed digits; the preset is unchanged after power on', () => {
     let s = powerOnToMain();
     s = run(atPresetList(s), PRE_UP, PRE_UP, ENT, ENT);
-    s = type(s, '150000');
-    expect(s.edit).toEqual({ buffer: '150000' });
+    s = type(s, '450000');
+    expect(s.edit).toEqual({ buffer: '450000' });
 
     s = run(s, POWER);
     expect(s.screen).toBe('off');
@@ -199,19 +199,29 @@ describe('scenario: volume overlay appears and clears (Assumed)', () => {
   });
 });
 
-describe('scenario: preset stepping leaves other presets and the dial alone (Assumed)', () => {
-  it('PRE + three times and PRE - once change only the active preset number', () => {
+describe('scenario: + and - retune the active preset in 25 kHz steps (Assumed)', () => {
+  it('+ three times and - once change only the active preset frequency and leave the dial alone', () => {
     let s = powerOnToMain();
     const defaults = createDefaultPresets();
     s = run(s, PRE_UP, PRE_UP, PRE_UP);
-    expect(s.preset).toBe(4);
+    expect(s.preset).toBe(1);
     expect(s.dial).toBe(1);
-    expect(s.presets).toEqual(defaults);
-
+    expect(bigRow(s)).toBe('30.075 MHz');
     s = run(s, PRE_DOWN);
-    expect(s.preset).toBe(3);
-    expect(s.dial).toBe(1);
-    expect(s.presets).toEqual(defaults);
-    expect(bigRow(s)).toBe('39.000 MHz');
+    expect(bigRow(s)).toBe('30.050 MHz');
+    expect(s.presets.slice(1)).toEqual(defaults.slice(1));
+  });
+
+  it('+ walks across the gap from the top of VHF to the bottom of UHF and - walks back', () => {
+    let s = atPresetList(powerOnToMain());
+    s = run(s, ENT, ENT, ...[...'087950'].map(digit), ENT, ENT, CLR, CLR, CLR, CLR);
+    expect(s.screen).toBe('main');
+    expect(bigRow(s)).toBe('87.950 MHz');
+    s = run(s, PRE_UP);
+    expect(bigRow(s)).toBe('87.975 MHz');
+    s = run(s, PRE_UP);
+    expect(bigRow(s)).toBe('225.000 MHz');
+    s = run(s, PRE_DOWN);
+    expect(bigRow(s)).toBe('87.975 MHz');
   });
 });

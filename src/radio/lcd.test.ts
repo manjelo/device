@@ -113,14 +113,14 @@ describe('renderLcd: main screen', () => {
     });
   });
 
-  it('Assumed: preset 100 shows its name and 475.500 MHz on the big row', () => {
+  it('Assumed: preset 100 shows its name and 508.800 MHz on the big row', () => {
     const frame = renderLcd({ ...main(), preset: PRESET_COUNT });
     expect(frame.rows[0].text).toBe('PRESET 100  CHAN 100');
-    expect(frame.rows[1].text).toBe('475.500 MHz');
+    expect(frame.rows[1].text).toBe('508.800 MHz');
   });
 
   it('Assumed: the big row follows the active preset (preset 3 is 39.000 MHz)', () => {
-    const s = repeat(main(), PRE_UP, 2);
+    const s = repeat(main(), knob('knob-channel', 1), 2);
     expect(renderLcd(s).rows[0].text).toBe('PRESET 03  CHAN 03');
     expect(renderLcd(s).rows[1].text).toBe('39.000 MHz');
   });
@@ -310,14 +310,14 @@ describe('renderLcd: preset edit pages', () => {
     ]);
   });
 
-  it('Assumed: the edit template shows the typed digits (15 -> 15_.___ MHz) on the large row', () => {
-    const rows = renderLcd(run(editFrequencyOf(0), digit('1'), digit('5'))).rows;
-    expect(rows[2]).toEqual({ text: '15_.___ MHz', size: 'large' });
+  it('Assumed: the edit template shows the typed digits (45 -> 45_.___ MHz) on the large row', () => {
+    const rows = renderLcd(run(editFrequencyOf(0), digit('4'), digit('5'))).rows;
+    expect(rows[2]).toEqual({ text: '45_.___ MHz', size: 'large' });
   });
 
-  it('Assumed: a full six-digit buffer shows 150.000 MHz on the large row', () => {
-    const rows = renderLcd(run(editFrequencyOf(0), digit('1'), digit('5'), digit('0'), digit('0'), digit('0'), digit('0'))).rows;
-    expect(rows[2].text).toBe('150.000 MHz');
+  it('Assumed: a full six-digit buffer shows 450.000 MHz on the large row', () => {
+    const rows = renderLcd(run(editFrequencyOf(0), digit('4'), digit('5'), digit('0'), digit('0'), digit('0'), digit('0'))).rows;
+    expect(rows[2].text).toBe('450.000 MHz');
   });
 
   it('Assumed: an incomplete ENT shows the ENTER 6 DIGITS notice as an inverse last row', () => {
@@ -347,18 +347,18 @@ describe('frequencyTemplate', () => {
     expect(frequencyTemplate('1500')).toBe('150.0__ MHz');
   });
 
-  it('Assumed: six digits give the full value: 150.000 MHz', () => {
-    expect(frequencyTemplate('150000')).toBe('150.000 MHz');
+  it('Assumed: six digits give the full value: 450.000 MHz', () => {
+    expect(frequencyTemplate('450000')).toBe('450.000 MHz');
     expect(frequencyTemplate('030000')).toBe('030.000 MHz');
   });
 });
 
 describe('renderLcd: confirm screens', () => {
-  it('Assumed: the frequency confirm frame shows NEW 150.000 MHz large and the apply prompt', () => {
-    const rows = renderLcd(run(editFrequencyOf(2), digit('1'), digit('5'), digit('0'), digit('0'), digit('0'), digit('0'), ENT)).rows;
+  it('Assumed: the frequency confirm frame shows NEW 450.000 MHz large and the apply prompt', () => {
+    const rows = renderLcd(run(editFrequencyOf(2), digit('4'), digit('5'), digit('0'), digit('0'), digit('0'), digit('0'), ENT)).rows;
     expect(rows).toEqual([
       { text: 'PRESET 03 FREQUENCY', size: 'small' },
-      { text: 'NEW 150.000 MHz', size: 'large' },
+      { text: 'NEW 450.000 MHz', size: 'large' },
       { text: 'Apply? ENT=yes CLR=no', size: 'small' },
     ]);
   });
@@ -427,7 +427,7 @@ describe('insetRows: the two rows the in-radio display shows', () => {
 
   it('Assumed: the SAVED notice reaches the in-radio display after a frequency save', () => {
     let s = run(main(), digit('8'), ENT, ENT, ENT, ENT);
-    s = run(s, digit('1'), digit('5'), digit('0'), digit('0'), digit('0'), digit('0'), ENT, ENT);
+    s = run(s, digit('4'), digit('5'), digit('0'), digit('0'), digit('0'), digit('0'), ENT, ENT);
     expect(s.notice).toBe('SAVED');
     expect(insetRows(renderLcd(s)).second?.text).toBe('SAVED');
   });

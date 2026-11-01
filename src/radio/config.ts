@@ -2,10 +2,30 @@
 // Source IDs (S1-S8) are defined in docs/device-research.md; status values follow docs/accuracy-matrix.md.
 // Values marked Assumed are simulator choices, not device facts.
 
-// Band limits. Secondary-source: S3 body "30 to 511.99 MHz", S4, S5, S7 snippet.
-// The matrix uses 512.000 MHz as the upper limit; S3 gives 511.99 MHz. Conflict noted, not resolved.
-export const FREQ_MIN_HZ = 30_000_000;
-export const FREQ_MAX_HZ = 512_000_000;
+// Multiband coverage (user-supplied specification): two separate bands with a gap between them.
+//   VHF  30.000 - 87.975 MHz
+//   UHF 225.000 - 511.975 MHz
+// Frequencies in the gap (87.975 - 225 MHz) are not tunable. The 25 kHz-grid upper limits (.975) are taken as given.
+// This replaces the earlier single 30 - 512 MHz range (secondary sources S3/S4/S5/S7).
+export interface FrequencyBand {
+  readonly id: 'VHF' | 'UHF';
+  readonly minHz: number;
+  readonly maxHz: number;
+}
+export const BANDS: readonly FrequencyBand[] = [
+  { id: 'VHF', minHz: 30_000_000, maxHz: 87_975_000 },
+  { id: 'UHF', minHz: 225_000_000, maxHz: 511_975_000 },
+];
+export const FREQ_MIN_HZ = BANDS[0].minHz; // lowest tunable frequency
+export const FREQ_MAX_HZ = BANDS[BANDS.length - 1].maxHz; // highest tunable frequency
+
+// Tuning step for the + and - keys on the main screen: 25 kHz (0.025 MHz), user-supplied. It matches the .975 band limits.
+export const FREQ_TUNE_STEP_HZ = 25_000;
+
+/** The band containing hz, or null when hz is outside every band (including the VHF/UHF gap). */
+export function bandOf(hz: number): FrequencyBand | null {
+  return BANDS.find((b) => hz >= b.minHz && hz <= b.maxHz) ?? null;
+}
 
 // Optional highband 762-870 MHz. Secondary-source (S5, S3 infobox); standard vs optional is Unknown.
 // Kept off. The reducer does not model the highband.
@@ -52,7 +72,7 @@ export const INITIAL_FREQUENCY_HZ = FREQ_MIN_HZ; // Assumed.
 export const ENTRY_MAX_DIGITS = 7;
 export const INVALID_FREQ_NOTICE = 'INVALID FREQ'; // Assumed label.
 
-// Placeholder menu draft entry. Assumed: frequency is whole MHz (max 3 digits, 512 MHz);
+// Placeholder menu draft entry. Assumed: frequency is whole MHz (max 3 digits);
 // volume and squelch are 0..10 (max 2 digits). Power is changed with the channel knob only.
 export const FREQ_DRAFT_MAX_DIGITS = 3;
 export const KNOB_DRAFT_MAX_DIGITS = 2;
@@ -63,10 +83,12 @@ export const BATTERY_PLACEHOLDER_PERCENT = 100;
 
 // V5 simulator constants. None of these is a documented device value (docs/device-functionality-v5.md).
 
-// Simulated default presets. Unknown: the factory presets are not documented. Preset n gets a distinct frequency so
-// that preset changes are visible: 30 MHz plus 4.5 MHz per step (preset 100 = 475.5 MHz, inside the band).
-export const DEFAULT_PRESET_BASE_HZ = FREQ_MIN_HZ;
-export const DEFAULT_PRESET_STEP_HZ = 4_500_000;
+// Simulated default presets. Unknown: the factory presets are not documented. Each preset gets a distinct frequency so
+// that preset changes are visible, spread across both bands: VHF presets start at 30 MHz in 4.5 MHz steps (presets
+// 1-13, 30.0 to 84.0 MHz); the rest are UHF from 225 MHz in 3.3 MHz steps (preset 100 = 508.8 MHz).
+export const DEFAULT_VHF_PRESET_COUNT = 13;
+export const DEFAULT_VHF_PRESET_STEP_HZ = 4_500_000;
+export const DEFAULT_UHF_PRESET_STEP_HZ = 3_300_000;
 
 // Front-panel frequency entry. Simulator-specific: six digits, MMM.KKK MHz, so the entry increment is 1 kHz.
 // The device tuning resolution (FREQ_STEP_HZ, 10 Hz, Secondary-source) is finer; every 1 kHz value is a valid multiple of it.
@@ -77,6 +99,15 @@ export const FREQ_ENTRY_INTEGER_DIGITS = 3;
 // positions 1 to 5 select presets 1 to 5; the other positions are shown but not supported.
 export const DIAL_POSITIONS: readonly string[] = ['SCAN', '1', '2', '3', '4', '5', 'S', 'F', 'Z', 'R'];
 export const INITIAL_DIAL_INDEX = 1;
+
+// Meaning of the dial positions S, F, Z and R (user-supplied). They are described on the LCD and in the info panel, but
+// the functions themselves are not simulated. Keyed by the DIAL_POSITIONS label.
+export const DIAL_DESCRIPTIONS: Readonly<Record<string, string>> = {
+  S: 'Scan channels',
+  F: 'Select presets using the front panel',
+  Z: 'Zeroize security keys',
+  R: 'Retransmission function',
+};
 export const DIAL_PRESET_POSITIONS = 5;
 
 // Display brightness. Simulator-specific: 1..5, applied to both the in-radio LCD and the enlarged preview.

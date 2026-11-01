@@ -60,21 +60,21 @@ test('capture functionality screenshots', { tag: '@functionality-screenshots' },
 
     await key(page, 'keypad-enter').click();
     await key(page, 'keypad-enter').click();
-    for (const d of ['1', '5']) await key(page, `keypad-${d}`).click();
-    await expect(lcd(page)).toContainText('15_.___ MHz');
+    for (const d of ['4', '5']) await key(page, `keypad-${d}`).click();
+    await expect(lcd(page)).toContainText('45_.___ MHz');
     await shot(page, 'frequency-editing');
 
     for (const d of ['0', '0', '0', '0']) await key(page, `keypad-${d}`).click();
     await key(page, 'keypad-enter').click();
-    await expect(lcd(page)).toContainText('NEW 150.000 MHz');
+    await expect(lcd(page)).toContainText('NEW 450.000 MHz');
     await shot(page, 'frequency-confirm');
 
     await key(page, 'keypad-enter').click();
     await expect(lcd(page)).toContainText('SAVED');
     for (let i = 0; i < 4; i += 1) await key(page, 'keypad-clear').click();
-    await key(page, 'keypad-preset-up').click();
-    await key(page, 'keypad-preset-up').click();
-    await expect(lcd(page)).toContainText('150.000 MHz');
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowUp');
+    await expect(lcd(page)).toContainText('450.000 MHz');
     await shot(page, 'preset-saved-main');
 
     await key(page, 'keypad-7').click();

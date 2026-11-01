@@ -7,9 +7,11 @@ import {
   BATTERY_PLACEHOLDER_PERCENT,
   BRIGHTNESS_MAX,
   BRIGHTNESS_MIN,
-  CHANNEL_MIN,
-  DEFAULT_PRESET_BASE_HZ,
-  DEFAULT_PRESET_STEP_HZ,
+  BANDS,
+  DEFAULT_UHF_PRESET_STEP_HZ,
+  DEFAULT_VHF_PRESET_COUNT,
+  DEFAULT_VHF_PRESET_STEP_HZ,
+  DIAL_DESCRIPTIONS,
   DIAL_POSITIONS,
   DIAL_PRESET_POSITIONS,
   ENTRY_INCOMPLETE_NOTICE,
@@ -17,6 +19,8 @@ import {
   FREQ_ENTRY_INTEGER_DIGITS,
   FREQ_MAX_HZ,
   FREQ_MIN_HZ,
+  FREQ_TUNE_STEP_HZ,
+  bandOf,
   INITIAL_BRIGHTNESS,
   INITIAL_DIAL_INDEX,
   INITIAL_OUTPUT_POWER_W,
@@ -51,11 +55,17 @@ export const RESET_PROMPT = 'Reset simulator? ENT=yes CLR=no';
 export const LOCKED_NOTICE = 'KEYPAD LOCKED';
 export const NOT_USED_NOTICE = 'NOT USED HERE';
 
+function defaultPresetFrequencyHz(i: number): number {
+  return i < DEFAULT_VHF_PRESET_COUNT
+    ? BANDS[0].minHz + i * DEFAULT_VHF_PRESET_STEP_HZ
+    : BANDS[1].minHz + (i - DEFAULT_VHF_PRESET_COUNT) * DEFAULT_UHF_PRESET_STEP_HZ;
+}
+
 /** Simulated default presets. Unknown: the factory presets are not documented (see config.ts). */
 export function createDefaultPresets(): Preset[] {
   return Array.from({ length: PRESET_COUNT }, (_, i) => {
     const n = String(i + 1).padStart(2, '0');
-    return { name: `CHAN ${n}`, frequencyHz: DEFAULT_PRESET_BASE_HZ + i * DEFAULT_PRESET_STEP_HZ };
+    return { name: `CHAN ${n}`, frequencyHz: defaultPresetFrequencyHz(i) };
   });
 }
 
@@ -92,7 +102,7 @@ export function activeFrequencyHz(state: RadioState): number {
 
 /**
  * Parses the frequency edit buffer. The buffer is exactly FREQ_ENTRY_DIGITS digits, read as MMM.KKK MHz.
- * Returns integer Hz, or null when the buffer is not complete, not all digits, or outside the band.
+ * Returns integer Hz, or null when the buffer is not complete, not all digits, or outside both bands (VHF 30-87.975 MHz, UHF 225-511.975 MHz).
  * Simulator-specific: the 1 kHz entry increment is coarser than the 10 Hz device resolution.
  */
 export function parseFrequencyEntry(buffer: string): number | null {
@@ -100,7 +110,7 @@ export function parseFrequencyEntry(buffer: string): number | null {
   const mhz = Number(buffer.slice(0, FREQ_ENTRY_INTEGER_DIGITS));
   const khz = Number(buffer.slice(FREQ_ENTRY_INTEGER_DIGITS));
   const hz = mhz * 1_000_000 + khz * 1_000;
-  return hz >= FREQ_MIN_HZ && hz <= FREQ_MAX_HZ ? hz : null;
+  return bandOf(hz) ? hz : null;
 }
 
 /**
@@ -251,6 +261,12 @@ function squelchKnob(state: RadioState, delta: -1 | 1): RadioState {
   return withCue({ ...state, squelch, overlay: { kind: 'squelch', value: squelch } }, 'knob');
 }
 
+/** The notice for a dial position that is not a preset: its meaning when known (S, F, Z, R), otherwise N/A. */
+function dialNotice(label: string): string {
+  const description = DIAL_DESCRIPTIONS[label];
+  return description ? `${label}: ${description.toUpperCase()}` : `DIAL ${label} N/A`;
+}
+
 /**
  * The top dial. Simulator-specific: positions 1 to 5 select presets 1 to 5; the other labelled positions are not
  * supported. The dial is a separate control from the 100 stored presets, which PRE + and PRE - step through.
@@ -265,7 +281,7 @@ function dialKnob(state: RadioState, delta: -1 | 1): RadioState {
       dial,
       preset: onPreset ? dial : state.preset,
       overlay: null,
-      notice: onPreset ? null : `DIAL ${DIAL_POSITIONS[dial]} N/A`,
+      notice: onPreset ? null : dialNotice(DIAL_POSITIONS[dial]),
     },
     'knob',
   );
@@ -378,13 +394,29 @@ function enterKey(state: RadioState): RadioState {
   }
 }
 
-/** PRE +/- . On the main screen they step the active preset. In a menu they move the cursor (no arrow keys on the SVG). */
+/**
+ * The next tunable frequency one tuning step up or down. Hops the gap between the bands (87.975 MHz up goes to
+ * 225.000 MHz and back) and stops at the lowest and highest tunable frequency. Simulator-specific (user-supplied).
+ */
+export function stepFrequency(hz: number, delta: -1 | 1): number {
+  const next = hz + delta * FREQ_TUNE_STEP_HZ;
+  if (bandOf(next)) return next;
+  if (delta > 0) return next > FREQ_MAX_HZ ? FREQ_MAX_HZ : BANDS[1].minHz;
+  return next < FREQ_MIN_HZ ? FREQ_MIN_HZ : BANDS[0].maxHz;
+}
+
+/**
+ * + and - . On the main screen they retune the active preset by one tuning step (25 kHz). In a menu they move the
+ * cursor (no arrow keys on the SVG). Presets are selected with the top dial.
+ */
 function presetKey(state: RadioState, delta: -1 | 1): RadioState {
   if (state.screen === 'menu') return moveCursor(state, delta);
   if (state.screen !== 'main') return state;
-  const preset = clamp(state.preset + delta, CHANNEL_MIN, PRESET_COUNT);
-  if (preset === state.preset) return state;
-  return withCue({ ...state, preset, overlay: null, notice: null }, 'key');
+  const index = state.preset - 1;
+  const frequencyHz = stepFrequency(state.presets[index].frequencyHz, delta);
+  if (frequencyHz === state.presets[index].frequencyHz) return withCue({ ...state, overlay: null, notice: null }, 'error');
+  const presets = state.presets.map((p, i) => (i === index ? { ...p, frequencyHz } : p));
+  return withCue({ ...state, presets, overlay: null, notice: null }, 'key');
 }
 
 function openMenu(state: RadioState, root: 'opt' | 'pgm'): RadioState {

@@ -54,7 +54,7 @@ export type MenuId = 'opt' | 'pgm' | 'pgm.system' | 'pgm.presets' | 'pgm.preset'
 /** One stored system preset. Names are simulator defaults; name editing is not supported. */
 export type Preset = {
   name: string;
-  frequencyHz: number; // integer Hz, FREQ_MIN_HZ..FREQ_MAX_HZ
+  frequencyHz: number; // integer Hz, inside the VHF or UHF band (see BANDS in config.ts)
 };
 
 /** A temporary indicator shown on the main screen for a short time (volume or squelch changes). */

@@ -2,7 +2,7 @@
 // Accuracy tags follow src/radio/config.ts and menus.ts: Assumed = simulator choice, Secondary-source = game-mod
 // description, Unknown = not documented. Nothing here is a claim about the original AN/PRC-152.
 import { describe, expect, it } from 'vitest';
-import { BATTERY_DRAIN_STEP_PERCENT, FREQ_MAX_HZ, FREQ_MIN_HZ, LOW_BATTERY_PERCENT, PRESET_COUNT } from './config';
+import { BATTERY_DRAIN_STEP_PERCENT, FREQ_MAX_HZ, FREQ_MIN_HZ, LOW_BATTERY_PERCENT, PRESET_COUNT, bandOf } from './config';
 import {
   CONFIRM_PROMPT,
   LOCKED_NOTICE,
@@ -14,6 +14,7 @@ import {
   isReceiving,
   parseFrequencyEntry,
   reduce,
+  stepFrequency,
 } from './stateMachine';
 import { renderLcd } from './lcd';
 import type { ControlId, KnobId, RadioAction, RadioState } from './types';
@@ -239,41 +240,57 @@ describe('main screen digits and star/hash', () => {
   });
 });
 
-describe('preset stepping on the main screen (PRE + and PRE -)', () => {
-  it('Assumed: PRE + on the main screen steps the active preset up by one', () => {
+describe('tuning with + and - on the main screen', () => {
+  const tuned = (hz: number): RadioState => {
+    const on = main();
+    return { ...on, presets: on.presets.map((p, i) => (i === on.preset - 1 ? { ...p, frequencyHz: hz } : p)) };
+  };
+  const freq = (s: RadioState): number => s.presets[s.preset - 1].frequencyHz;
+
+  it('Assumed: + raises the active preset frequency by 25 kHz and plays the key cue', () => {
     const s = run(main(), PRE_UP);
-    expect(s.preset).toBe(2);
+    expect(freq(s)).toBe(30_025_000);
+    expect(s.preset).toBe(1);
     expect(s.sound.seq).toBe(main().sound.seq + 1);
   });
 
-  it('Assumed: PRE - at preset 1 returns the same state object (clamped at 1)', () => {
-    const on = main();
-    expect(reduce(on, PRE_DOWN)).toBe(on);
+  it('Assumed: - lowers it by 25 kHz', () => {
+    expect(freq(run(tuned(450_000_000), PRE_DOWN))).toBe(449_975_000);
   });
 
-  it('Assumed: PRE + at preset 100 returns the same state object (clamped at 100)', () => {
-    const top = { ...main(), preset: PRESET_COUNT };
-    expect(reduce(top, PRE_UP)).toBe(top);
-  });
-
-  it('Assumed: stepping up to 100 and back down to 99 works one step at a time', () => {
-    const top = repeat(main(), PRE_UP, PRESET_COUNT - 1);
-    expect(top.preset).toBe(PRESET_COUNT);
-    expect(run(top, PRE_DOWN).preset).toBe(PRESET_COUNT - 1);
-  });
-
-  it('Assumed: PRE + and PRE - never change the dial', () => {
+  it('Assumed: only the active preset changes, and never the dial', () => {
     const s = repeat(main(), PRE_UP, 7);
-    expect(s.preset).toBe(8);
+    expect(freq(s)).toBe(30_175_000);
     expect(s.dial).toBe(1);
-    expect(run(s, PRE_DOWN, PRE_DOWN).dial).toBe(1);
+    expect(s.presets.slice(1)).toEqual(main().presets.slice(1));
   });
 
-  it('Assumed: PRE keys do nothing in the edit and confirm screens', () => {
+  it('Assumed: + at 87.975 MHz hops the gap to 225.000 MHz, and - at 225.000 MHz hops back', () => {
+    expect(freq(run(tuned(87_975_000), PRE_UP))).toBe(225_000_000);
+    expect(freq(run(tuned(225_000_000), PRE_DOWN))).toBe(87_975_000);
+  });
+
+  it('Assumed: the lowest and highest frequencies stop with the error cue and no change', () => {
+    const low = tuned(FREQ_MIN_HZ);
+    const afterLow = run(low, PRE_DOWN);
+    expect(freq(afterLow)).toBe(FREQ_MIN_HZ);
+    expect(afterLow.sound.cue).toBe('error');
+    const high = tuned(FREQ_MAX_HZ);
+    expect(freq(run(high, PRE_UP))).toBe(FREQ_MAX_HZ);
+  });
+
+  it('stepFrequency never lands in the gap', () => {
+    let hz = FREQ_MIN_HZ;
+    for (let next = stepFrequency(hz, 1); next !== hz; hz = next, next = stepFrequency(hz, 1)) {
+      expect(bandOf(next)).not.toBeNull();
+    }
+    expect(hz).toBe(FREQ_MAX_HZ);
+  });
+
+  it('Assumed: + and - do nothing in the edit and confirm screens', () => {
     const edit = editFrequencyOf(0);
     expect(reduce(edit, PRE_UP)).toBe(edit);
-    const confirm = digits(edit, '150000');
-    const onConfirm = run(confirm, ENT);
+    const onConfirm = run(digits(edit, '450000'), ENT);
     expect(onConfirm.screen).toBe('confirm');
     expect(reduce(onConfirm, PRE_UP)).toBe(onConfirm);
   });
@@ -402,7 +419,7 @@ describe('frequency entry in PGM > System Presets > Preset > Frequency', () => {
   });
 
   it('Assumed: a seventh digit is ignored (buffer stays at six digits, same state object)', () => {
-    const full = digits(editFrequencyOf(0), '150000');
+    const full = digits(editFrequencyOf(0), '450000');
     expect(reduce(full, digit('7'))).toBe(full);
   });
 
@@ -420,7 +437,7 @@ describe('frequency entry in PGM > System Presets > Preset > Frequency', () => {
     expect(s.notice).toBe(ENTRY_INCOMPLETE_NOTICE);
   });
 
-  it.each(['029999', '512001', '999999', '000000'])('Assumed: ENT with %s (outside 30..512 MHz) sets the out-of-range notice', (buf) => {
+  it.each(['029999', '087976', '150000', '224999', '511976', '512000', '999999', '000000'])('ENT with %s (outside VHF 30-87.975 and UHF 225-511.975 MHz) sets the out-of-range notice', (buf) => {
     const s = run(digits(editFrequencyOf(0), buf), ENT);
     expect(s.screen).toBe('edit');
     expect(s.notice).toBe(OUT_OF_RANGE_NOTICE);
@@ -429,8 +446,10 @@ describe('frequency entry in PGM > System Presets > Preset > Frequency', () => {
 
   it.each([
     ['030000', 30_000_000],
-    ['512000', 512_000_000],
-    ['150000', 150_000_000],
+    ['087975', 87_975_000],
+    ['225000', 225_000_000],
+    ['511975', 511_975_000],
+    ['450000', 450_000_000],
   ])('Assumed: ENT with %s is valid and goes to the confirm screen with %i Hz', (buf, hz) => {
     const s = run(digits(editFrequencyOf(0), buf), ENT);
     expect(s.screen).toBe('confirm');
@@ -438,32 +457,32 @@ describe('frequency entry in PGM > System Presets > Preset > Frequency', () => {
   });
 
   it('Assumed: a valid entry does not change any preset until ENT is pressed on the confirm screen', () => {
-    const s = run(digits(editFrequencyOf(2), '150000'), ENT);
+    const s = run(digits(editFrequencyOf(2), '450000'), ENT);
     expect(s.screen).toBe('confirm');
     expect(s.presets).toEqual(createDefaultPresets());
   });
 
   it('Assumed: ENT on confirm saves only the chosen preset, leaves every other preset unchanged, and shows SAVED', () => {
-    const saved = run(digits(editFrequencyOf(2), '150000'), ENT, ENT);
+    const saved = run(digits(editFrequencyOf(2), '450000'), ENT, ENT);
     expect(saved.screen).toBe('menu');
     expect(saved.notice).toBe(SAVED_NOTICE);
     expect(saved.pendingConfirm).toBeNull();
     expect(saved.edit).toBeNull();
     const defaults = createDefaultPresets();
     expect(saved.presets).toHaveLength(PRESET_COUNT);
-    expect(saved.presets[2].frequencyHz).toBe(150_000_000);
+    expect(saved.presets[2].frequencyHz).toBe(450_000_000);
     saved.presets.forEach((p, i) => {
       if (i !== 2) expect(p).toEqual(defaults[i]);
     });
   });
 
   it('Assumed: editing the active preset changes activeFrequencyHz', () => {
-    const saved = run(digits(editFrequencyOf(0), '150000'), ENT, ENT);
-    expect(activeFrequencyHz(saved)).toBe(150_000_000);
+    const saved = run(digits(editFrequencyOf(0), '450000'), ENT, ENT);
+    expect(activeFrequencyHz(saved)).toBe(450_000_000);
   });
 
   it('Assumed: CLR on the confirm screen cancels without changing presets and returns to the menu', () => {
-    const cancelled = run(digits(editFrequencyOf(2), '150000'), ENT, CLR);
+    const cancelled = run(digits(editFrequencyOf(2), '450000'), ENT, CLR);
     expect(cancelled.screen).toBe('menu');
     expect(cancelled.pendingConfirm).toBeNull();
     expect(cancelled.presets).toEqual(createDefaultPresets());
@@ -486,7 +505,7 @@ describe('frequency entry in PGM > System Presets > Preset > Frequency', () => {
   it('Assumed: digits are ignored on the menu and confirm screens (same state object)', () => {
     const onMenu = run(main(), digit('8'));
     expect(reduce(onMenu, digit('1'))).toBe(onMenu);
-    const onConfirm = run(digits(editFrequencyOf(0), '150000'), ENT);
+    const onConfirm = run(digits(editFrequencyOf(0), '450000'), ENT);
     expect(reduce(onConfirm, digit('1'))).toBe(onConfirm);
   });
 
@@ -498,26 +517,38 @@ describe('frequency entry in PGM > System Presets > Preset > Frequency', () => {
 });
 
 describe('frequency parsing (parseFrequencyEntry)', () => {
-  it('Assumed: six digits read as MMM.KKK MHz, so 150000 is 150.000 MHz', () => {
-    expect(parseFrequencyEntry('150000')).toBe(150_000_000);
+  it('Assumed: six digits read as MMM.KKK MHz, so 450000 is 450.000 MHz', () => {
+    expect(parseFrequencyEntry('450000')).toBe(450_000_000);
   });
 
-  it('Assumed: the band limits are 30.000 MHz and 512.000 MHz inclusive', () => {
+  it('multiband: VHF is 30.000-87.975 MHz and UHF is 225.000-511.975 MHz, both inclusive', () => {
     expect(parseFrequencyEntry('030000')).toBe(FREQ_MIN_HZ);
-    expect(parseFrequencyEntry('512000')).toBe(FREQ_MAX_HZ);
+    expect(parseFrequencyEntry('087975')).toBe(87_975_000);
+    expect(parseFrequencyEntry('225000')).toBe(225_000_000);
+    expect(parseFrequencyEntry('511975')).toBe(FREQ_MAX_HZ);
   });
 
-  it('Assumed: the kHz digits are kept at 1 kHz resolution (150123 is 150.123 MHz)', () => {
-    expect(parseFrequencyEntry('150123')).toBe(150_123_000);
+  it('multiband: the gap between the bands is not tunable', () => {
+    expect(parseFrequencyEntry('087976')).toBeNull();
+    expect(parseFrequencyEntry('150000')).toBeNull();
+    expect(parseFrequencyEntry('224999')).toBeNull();
+  });
+
+  it('multiband: every default preset is inside a band', () => {
+    for (const p of createDefaultPresets()) expect(bandOf(p.frequencyHz)).not.toBeNull();
+  });
+
+  it('Assumed: the kHz digits are kept at 1 kHz resolution (450123 is 450.123 MHz)', () => {
+    expect(parseFrequencyEntry('450123')).toBe(450_123_000);
   });
 
   it('returns null for non-six-digit, non-digit, or out-of-band buffers', () => {
     expect(parseFrequencyEntry('')).toBeNull();
     expect(parseFrequencyEntry('1500')).toBeNull();
-    expect(parseFrequencyEntry('1500000')).toBeNull();
+    expect(parseFrequencyEntry('4500000')).toBeNull();
     expect(parseFrequencyEntry('15A000')).toBeNull();
     expect(parseFrequencyEntry('029999')).toBeNull();
-    expect(parseFrequencyEntry('512001')).toBeNull();
+    expect(parseFrequencyEntry('511976')).toBeNull();
   });
 });
 
@@ -594,15 +625,26 @@ describe('dial (knob-channel) on the main screen', () => {
     expect(reduce(s, knob('knob-channel', -1)).preset).toBe(4);
   });
 
-  it('Assumed: dial position S (index 6) is not supported: preset unchanged, notice DIAL S N/A', () => {
+  it('dial position S (index 6) is described but not simulated: preset unchanged, notice S: SCAN CHANNELS', () => {
     const s = repeat(main(), knob('knob-channel', 1), 4);
     expect(s.dial).toBe(5);
     expect(s.preset).toBe(5);
     const onS = reduce(s, knob('knob-channel', 1));
     expect(onS.dial).toBe(6);
     expect(onS.preset).toBe(5);
-    expect(onS.notice).toBe('DIAL S N/A');
+    expect(onS.notice).toBe('S: SCAN CHANNELS');
     expect(onS.sound.cue).toBe('knob');
+  });
+
+  it('dial positions F, Z and R show their descriptions', () => {
+    let s = repeat(main(), knob('knob-channel', 1), 4);
+    const notices: string[] = [];
+    for (let i = 0; i < 4; i += 1) {
+      s = reduce(s, knob('knob-channel', 1));
+      notices.push(s.notice ?? '');
+    }
+    expect(notices).toEqual(['S: SCAN CHANNELS', 'F: SELECT PRESETS USING THE FRONT PANEL', 'Z: ZEROIZE SECURITY KEYS', 'R: RETRANSMISSION FUNCTION']);
+    expect(s.preset).toBe(5);
   });
 
   it('Assumed: dial position SCAN (index 0) is not supported: preset unchanged, notice DIAL SCAN N/A', () => {
@@ -620,16 +662,16 @@ describe('dial (knob-channel) on the main screen', () => {
     expect(reduce(top, knob('knob-channel', 1))).toBe(top);
   });
 
-  it('Assumed: the dial is separate from stored presets: PRE keys step presets without moving the dial', () => {
+  it('Assumed: + and - retune the active preset without moving the dial or changing the preset number', () => {
     const s = repeat(main(), PRE_UP, 3);
-    expect(s.preset).toBe(4);
+    expect(s.preset).toBe(1);
     expect(s.dial).toBe(1);
   });
 
   it('Assumed: the dial does nothing on the edit, confirm and locked screens', () => {
     const edit = editFrequencyOf(0);
     expect(reduce(edit, knob('knob-channel', 1))).toBe(edit);
-    const confirm = run(digits(edit, '150000'), ENT);
+    const confirm = run(digits(edit, '450000'), ENT);
     expect(reduce(confirm, knob('knob-channel', 1))).toBe(confirm);
     const locked = run(optAt(0), ENT);
     expect(reduce(locked, knob('knob-channel', 1))).toBe(locked);
@@ -717,7 +759,7 @@ describe('PTT', () => {
   it('Assumed: PTT down works in the menu, edit and confirm screens', () => {
     expect(reduce(run(main(), digit('8')), ptt(true)).mode).toBe('transmit');
     expect(reduce(editFrequencyOf(0), ptt(true)).mode).toBe('transmit');
-    const confirm = run(digits(editFrequencyOf(0), '150000'), ENT);
+    const confirm = run(digits(editFrequencyOf(0), '450000'), ENT);
     expect(reduce(confirm, ptt(true)).mode).toBe('transmit');
   });
 });
@@ -814,7 +856,7 @@ describe('reset', () => {
   it('Assumed: ENT on the reset confirm restores defaults and leaves the radio on the main screen', () => {
     const modified: RadioState = {
       ...main(),
-      presets: createDefaultPresets().map((p, i) => (i === 0 ? { ...p, frequencyHz: 150_000_000 } : p)),
+      presets: createDefaultPresets().map((p, i) => (i === 0 ? { ...p, frequencyHz: 450_000_000 } : p)),
       brightness: 2,
       squelch: 9,
       volume: 9,
@@ -882,14 +924,14 @@ describe('purity and determinism', () => {
 
   it('a full frozen sequence runs without mutation and leaves presets equal to the defaults', () => {
     const frozen = deepFreeze(deepCopy(editFrequencyOf(2)));
-    const after = run(frozen, digit('1'), digit('5'), digit('0'), digit('0'), digit('0'), digit('0'), ENT, ENT);
-    expect(after.presets[2].frequencyHz).toBe(150_000_000);
+    const after = run(frozen, digit('4'), digit('5'), digit('0'), digit('0'), digit('0'), digit('0'), ENT, ENT);
+    expect(after.presets[2].frequencyHz).toBe(450_000_000);
     expect(frozen.presets).toEqual(createDefaultPresets());
     expect(frozen.screen).toBe('edit');
   });
 
   it('the same input always gives a deep-equal output', () => {
-    const actions: RadioAction[] = [POWER, TICK, digit('8'), ENT, ENT, PRE_UP, ENT, ENT, digit('1'), digit('5'), digit('0'), digit('0'), digit('0'), digit('0'), ENT];
+    const actions: RadioAction[] = [POWER, TICK, digit('8'), ENT, ENT, PRE_UP, ENT, ENT, digit('4'), digit('5'), digit('0'), digit('0'), digit('0'), digit('0'), ENT];
     const first = run(initialState, ...actions);
     const second = run(initialState, ...actions);
     expect(second).toEqual(first);
@@ -918,7 +960,7 @@ describe('review fixes (V5)', () => {
 
   it('Assumed: the edit buffer is cleared when a valid entry moves to the confirm screen', () => {
     let s = run(main(), digit('8'), ENT, ENT, ENT, ENT);
-    s = run(digits(s, '150000'), ENT);
+    s = run(digits(s, '450000'), ENT);
     expect(s.screen).toBe('confirm');
     expect(s.edit).toBeNull();
     expect(s.pendingConfirm?.kind).toBe('frequency');
