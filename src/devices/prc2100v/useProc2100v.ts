@@ -16,7 +16,7 @@ export function controlAction(id: Prc2100vControl, delta: -1 | 1 = 1): Prc2100vA
     case 'pad-left': return { type: 'tune', delta: -1 };
     case 'key-square': return { type: 'cycle-mode' };
     case 'key-round': return { type: 'cycle-power' };
-    case 'key-oval': return { type: 'cycle-spacing' };
+    case 'key-oval': return { type: 'settings-toggle' };
     case 'ptt': return { type: 'ptt', down: delta === 1 };
   }
 }

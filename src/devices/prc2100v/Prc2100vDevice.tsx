@@ -21,7 +21,8 @@ const ROWS: Row[] = [
   { control: 'Pad right / left', does: 'Tune one channel-spacing step up / down', status: 'Assumed function (range and spacing Documented)', keys: 'Arrow right / left' },
   { control: 'Square key', does: 'Cycle mode FF, FH, DIG (label only, not simulated)', status: 'Assumed function (modes Documented)', keys: 'M' },
   { control: 'Round key', does: 'Cycle TX power 0.5, 5, 10 W', status: 'Assumed function (3 settings, 0.5 and 10 W Documented; 5 W Assumed)', keys: 'W' },
-  { control: 'Oval key', does: 'Toggle channel spacing 25 / 12.5 kHz', status: 'Assumed function (spacings Documented)', keys: 'S' },
+  { control: 'Oval key (third key)', does: 'Open / close the setting page of the selected channel: frequency, H hopping freq, C encryption, S secure (H, C, S not simulated yet)', status: 'Assumed function and layout', keys: 'S' },
+  { control: 'Pad and square key on the setting page', does: 'Pad up / down moves the row, left / right tunes the frequency, the square key toggles channel spacing 25 / 12.5 kHz', status: 'Assumed function (spacings Documented)', keys: 'Arrows, M' },
   { control: 'PTT button (below the radio)', does: 'Hold to transmit on the link', status: 'Simulator feature: no PTT is visible on the front panel', keys: 'T (hold)' },
   { control: 'XMODE, RADIO, AMP, top-left connectors', does: 'Not interactive', status: 'Verified-photo (label and position only); function Unknown', keys: '-' },
 ];
@@ -56,7 +57,7 @@ export function Prc2100vDevice({ link, onToggleLink }: { link: LinkSettings; onT
   const lcd = renderLcd(state);
   const on = state.power === 'on';
   const lcdText = lcd
-    ? `${lcd.title} ${lcd.freq} MHz ${lcd.channel} ${lcd.mode} ${lcd.spacing} ${lcd.volume} PWR ${TX_POWER_W[state.powerIdx]} W${lcd.state ? ` ${lcd.state}` : ''}`
+    ? `${lcd.title} ${lcd.freq} MHz ${lcd.channel} ${lcd.mode} ${lcd.spacing} ${lcd.volume} PWR ${TX_POWER_W[state.powerIdx]} W${lcd.state ? ` ${lcd.state}` : ''}${lcd.screen === 'settings' ? ` Selected: ${lcd.settings.find((r) => r.selected)?.label}` : ''}`
     : 'Display off';
 
   // Volume: drag up/down or use the wheel; a plain click steps left half down, right half up.
@@ -109,7 +110,7 @@ export function Prc2100vDevice({ link, onToggleLink }: { link: LinkSettings; onT
           <rect x="210" y="20" width="234" height="136" rx="3" fill={on ? '#a9c08f' : '#2a3326'} />
           {lcd && (
             <g fontFamily="ui-monospace, Menlo, Consolas, monospace" fill="#1c2a17" aria-hidden="true">
-              <text x="216" y="38" fontSize="13" fontWeight="700">{lcd.title}</text>
+              <text x="216" y="38" fontSize={lcd.screen === 'settings' ? 11 : 13} fontWeight="700">{lcd.title}</text>
               {/* Status boxes. GPS and SIL are on the original display; they are never active here (not simulated). */}
               {['GPS', 'SIL'].map((t, i) => (
                 <g key={t}>
@@ -120,12 +121,27 @@ export function Prc2100vDevice({ link, onToggleLink }: { link: LinkSettings; onT
               <rect x="390" y="26" width="50" height="15" fill="#1c2a17" />
               <text x="415" y="38" fontSize="10" textAnchor="middle" fill="#a9c08f">{`${lcd.mode} ${lcd.spacing}`}</text>
               <line x1="212" x2="442" y1="46" y2="46" stroke="#1c2a17" strokeOpacity=".5" />
-              <text x="216" y="92" fontSize="14">▸</text>
-              <rect x="230" y="68" width="30" height="30" fill="none" stroke="#1c2a17" strokeWidth="2" />
-              <text x="245" y="90" fontSize="16" fontWeight="700" textAnchor="middle">{state.channel}</text>
-              <text x="268" y="96" fontSize="34" fontWeight="700">{lcd.freq}</text>
-              <text x="216" y="118" fontSize="12">{lcd.channel}</text>
-              <text x="372" y="118" fontSize="14" fontWeight="700" textAnchor="end">{lcd.state}</text>
+              {lcd.screen === 'main' ? (
+                lcd.channels.map((c, i) => (
+                  <g key={i} fontSize={c.selected ? 14 : 12} fontWeight={c.selected ? 700 : 400} fillOpacity={c.selected ? 1 : 0.65}>
+                    {c.selected && <rect x="212" y={47 + i * 16} width="202" height="16" fill="#1c2a17" fillOpacity="1" />}
+                    <g fill={c.selected ? '#a9c08f' : '#1c2a17'}>
+                      <text x="218" y={59.5 + i * 16}>{c.text && `CH ${c.text}`}</text>
+                      <text x="408" y={59.5 + i * 16} textAnchor="end">{c.freq}</text>
+                    </g>
+                  </g>
+                ))
+              ) : (
+                lcd.settings.map((r, i) => (
+                  <g key={r.key} fontSize="13" fontWeight={r.selected ? 700 : 400}>
+                    {r.selected && <rect x="212" y={52 + i * 18} width="202" height="17" fill="#1c2a17" />}
+                    <g fill={r.selected ? '#a9c08f' : '#1c2a17'}>
+                      <text x="218" y={65 + i * 18}>{`${r.key}: ${r.label}`}</text>
+                      <text x="408" y={65 + i * 18} textAnchor="end">{r.value}</text>
+                    </g>
+                  </g>
+                ))
+              )}
               {/* Vertical scale on the right edge (follows volume; Assumed) */}
               {Array.from({ length: 10 }, (_, i) => (
                 <rect key={i} x="418" y={112 - i * 6} width={i % 5 === 4 ? 18 : 12} height="3" fillOpacity={i < state.volume ? 1 : 0.2} />
@@ -133,6 +149,7 @@ export function Prc2100vDevice({ link, onToggleLink }: { link: LinkSettings; onT
               <line x1="212" x2="442" y1="128" y2="128" stroke="#1c2a17" strokeOpacity=".5" />
               <text x="216" y="146" fontSize="12">{lcd.volume}</text>
               <text x="300" y="146" fontSize="12">PWR</text>
+              <text x="438" y="146" fontSize="14" fontWeight="700" textAnchor="end">{lcd.state}</text>
               {[0, 1, 2].map((i) => (
                 <rect key={i} x={336 + i * 12} y={146 - 6 - i * 3} width="8" height={6 + i * 3} fillOpacity={i < lcd.powerBars ? 1 : 0.2} />
               ))}
@@ -142,7 +159,7 @@ export function Prc2100vDevice({ link, onToggleLink }: { link: LinkSettings; onT
           {/* Keys under the LCD (unlabeled on the original) */}
           <Ctl id="key-square" label="Square key (assumed: mode)" onPress={onPress}><rect x="214" y="200" width="34" height="34" rx="5" fill="#2f3528" stroke="#20241b" strokeWidth="2" /></Ctl>
           <Ctl id="key-round" label="Round key (assumed: TX power)" onPress={onPress}><circle cx="288" cy="217" r="18" fill="#2f3528" stroke="#20241b" strokeWidth="2" /></Ctl>
-          <Ctl id="key-oval" label="Oval key (assumed: channel spacing)" onPress={onPress}><rect x="322" y="199" width="120" height="36" rx="18" fill="#2f3528" stroke="#20241b" strokeWidth="2" /></Ctl>
+          <Ctl id="key-oval" label="Oval key (assumed: channel settings)" onPress={onPress}><rect x="322" y="199" width="120" height="36" rx="18" fill="#2f3528" stroke="#20241b" strokeWidth="2" /></Ctl>
           {/* Four-way pad */}
           <Ctl id="pad-up" label="Pad up (assumed: next channel)" onPress={onPress}><rect x="543" y="14" width="34" height="34" rx="6" transform="rotate(45 560 31)" fill="#343a2c" stroke="#20241b" strokeWidth="2" /></Ctl>
           <Ctl id="pad-left" label="Pad left (assumed: tune down)" onPress={onPress}><rect x="503" y="54" width="34" height="34" rx="6" transform="rotate(45 520 71)" fill="#343a2c" stroke="#20241b" strokeWidth="2" /></Ctl>

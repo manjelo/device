@@ -22,11 +22,26 @@ export type Prc2100vState = {
   channels: Channel[];
   volume: number; // 0..VOLUME_MAX
   powerIdx: number; // index into TX_POWER_W
+  /** 'settings' is the setting page of the selected channel (opened with the oval key). Assumed layout. */
+  screen: 'main' | 'settings';
+  /** Row cursor on the settings page: index into SETTING_ROWS. */
+  cursor: number;
   /** Other simulator instances heard over the link: sender id -> frequency in Hz. Simulator-specific. */
   heard: Record<string, number>;
 };
 
+/** Rows of the channel setting page. F sets the frequency; H, C and S are defined one by one (not simulated yet). */
+export const SETTING_ROWS = [
+  { key: 'F', label: 'FREQ' },
+  { key: 'H', label: 'HOPPING FREQ' },
+  { key: 'C', label: 'ENCRYPTION' },
+  { key: 'S', label: 'SECURE' },
+] as const;
+/** Channels shown on the main screen, the selected one in the middle. Assumed layout. */
+export const CHANNEL_WINDOW = 5;
+
 export type Prc2100vAction =
+  | { type: 'settings-toggle' }
   | { type: 'power-toggle' }
   | { type: 'ptt'; down: boolean }
   | { type: 'channel'; delta: -1 | 1 }
@@ -53,6 +68,8 @@ export const initialState: Prc2100vState = {
   channels: defaultChannels(),
   volume: 5,
   powerIdx: 0,
+  screen: 'main',
+  cursor: 0,
   heard: {},
 };
 
@@ -94,7 +111,7 @@ export function reduce(s: Prc2100vState, a: Prc2100vAction): Prc2100vState {
     return { ...s, heard };
   }
   if (a.type === 'power-toggle') {
-    return s.power === 'off' ? { ...s, power: 'on' } : { ...s, power: 'off', mode: 'standby' };
+    return s.power === 'off' ? { ...s, power: 'on' } : { ...s, power: 'off', mode: 'standby', screen: 'main', cursor: 0 };
   }
   if (s.power !== 'on') return s; // every other control is inert while off
   switch (a.type) {
@@ -106,6 +123,14 @@ export function reduce(s: Prc2100vState, a: Prc2100vAction): Prc2100vState {
       return { ...s, powerIdx: (s.powerIdx + 1) % TX_POWER_W.length };
   }
   if (s.mode === 'transmit') return s; // no retuning while keyed
+  if (a.type === 'settings-toggle') return { ...s, screen: s.screen === 'main' ? 'settings' : 'main', cursor: 0 };
+  if (s.screen === 'settings') {
+    // On the setting page the pad up/down moves the row cursor, left/right tunes on the frequency row, and the mode
+    // key (otherwise label-only) toggles the channel spacing, which used to be on the oval key.
+    if (a.type === 'channel') return { ...s, cursor: clamp(s.cursor - a.delta, 0, SETTING_ROWS.length - 1) };
+    if (a.type === 'tune' && s.cursor !== 0) return s;
+    if (a.type === 'cycle-mode') a = { type: 'cycle-spacing' };
+  }
   switch (a.type) {
     case 'channel':
       return { ...s, channel: ((s.channel - 1 + a.delta + CHANNEL_COUNT) % CHANNEL_COUNT) + 1 };
@@ -131,19 +156,52 @@ export function formatMhz(hz: number): string {
   return (hz / 1_000_000).toFixed(hz % 1000 === 0 ? 3 : 4);
 }
 
+export type LcdChannelRow = { text: string; freq: string; selected: boolean };
+export type LcdSettingRow = { key: string; label: string; value: string; selected: boolean };
+export type Prc2100vLcd = {
+  on: true;
+  screen: 'main' | 'settings';
+  title: string;
+  freq: string;
+  channel: string;
+  mode: string;
+  spacing: string;
+  volume: string;
+  powerBars: number;
+  state: 'TX' | 'RX' | '';
+  /** Main screen: CHANNEL_WINDOW channels, the selected one in the middle. Slots outside 1..CHANNEL_COUNT are blank. */
+  channels: LcdChannelRow[];
+  /** Setting page rows. */
+  settings: LcdSettingRow[];
+};
+
 /** Text the LCD shows. Field choice is Assumed (the photo shows the main frequency only). */
-export function renderLcd(s: Prc2100vState): { on: boolean; title: string; freq: string; channel: string; mode: string; spacing: string; volume: string; powerBars: number; state: 'TX' | 'RX' | '' } | null {
+export function renderLcd(s: Prc2100vState): Prc2100vLcd | null {
   if (s.power !== 'on') return null;
   const c = activeChannel(s);
+  const half = Math.floor(CHANNEL_WINDOW / 2);
+  const ch3 = (n: number) => String(n).padStart(3, '0');
   return {
     on: true,
-    title: 'SPECTRE',
+    screen: s.screen,
+    title: s.screen === 'settings' ? `CH ${ch3(s.channel)} SETTINGS` : 'SPECTRE',
     freq: formatMhz(c.frequencyHz),
-    channel: `CH ${String(s.channel).padStart(3, '0')}`,
+    channel: `CH ${ch3(s.channel)}`,
     mode: c.mode === 'DIGITAL' ? 'DIG' : c.mode,
     spacing: c.spacingHz === 12_500 ? '12.5K' : '25K',
     volume: `VOL ${s.volume}`,
     powerBars: s.powerIdx + 1,
     state: s.mode === 'transmit' ? 'TX' : isReceiving(s) ? 'RX' : '',
+    channels: Array.from({ length: CHANNEL_WINDOW }, (_, i) => {
+      const n = s.channel + i - half;
+      if (n < 1 || n > CHANNEL_COUNT) return { text: '', freq: '', selected: false };
+      return { text: ch3(n), freq: formatMhz(s.channels[n - 1].frequencyHz), selected: i === half };
+    }),
+    settings: SETTING_ROWS.map((r, i) => ({
+      key: r.key,
+      label: r.label,
+      value: i === 0 ? `${formatMhz(c.frequencyHz)} MHz ${c.spacingHz === 12_500 ? '12.5K' : '25K'}` : '',
+      selected: i === s.cursor,
+    })),
   };
 }

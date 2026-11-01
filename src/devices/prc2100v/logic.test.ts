@@ -62,3 +62,34 @@ describe('PRC2100V logic', () => {
     expect(s.volume).toBe(10);
   });
 });
+
+describe('PRC2100V channel window and setting page', () => {
+  const nums = (s: typeof on) => renderLcd(s)!.channels.map((c) => c.text);
+  it('shows five channels with the selected one in the middle, blank-padded at the ends', () => {
+    expect(nums(on)).toEqual(['', '', '001', '002', '003']);
+    const mid = run({ type: 'power-toggle' }, ...Array.from({ length: 49 }, () => ({ type: 'channel', delta: 1 }) as const));
+    expect(nums(mid)).toEqual(['048', '049', '050', '051', '052']);
+    expect(renderLcd(mid)!.channels.map((c) => c.selected)).toEqual([false, false, true, false, false]);
+    const last = reduce(on, { type: 'channel', delta: -1 });
+    expect(nums(last)).toEqual(['098', '099', '100', '', '']);
+  });
+  it('the oval key opens the setting page of the selected channel and closes it again', () => {
+    const open = reduce(on, { type: 'settings-toggle' });
+    expect(open.screen).toBe('settings');
+    expect(renderLcd(open)!.settings.map((r) => r.key)).toEqual(['F', 'H', 'C', 'S']);
+    expect(reduce(open, { type: 'settings-toggle' }).screen).toBe('main');
+  });
+  it('on the setting page pad up/down moves the row and left/right tunes only on the frequency row', () => {
+    let s = reduce(on, { type: 'settings-toggle' });
+    expect(activeFrequencyHz(reduce(s, { type: 'tune', delta: 1 }))).toBe(30_025_000);
+    expect(reduce(s, { type: 'channel', delta: 1 }).channel).toBe(1);
+    s = reduce(s, { type: 'channel', delta: -1 }); // down
+    expect(s.cursor).toBe(1);
+    expect(reduce(s, { type: 'tune', delta: 1 })).toBe(s);
+    expect(reduce(s, { type: 'channel', delta: 1 }).cursor).toBe(0);
+  });
+  it('is closed by power off and cannot open while keyed', () => {
+    expect(reduce(reduce(on, { type: 'settings-toggle' }), { type: 'power-toggle' }).screen).toBe('main');
+    expect(reduce(reduce(on, { type: 'ptt', down: true }), { type: 'settings-toggle' }).screen).toBe('main');
+  });
+});

@@ -16,9 +16,11 @@ test('picker opens the PRC2100V, which powers on and tunes with the pad', async 
   await page.locator('[data-control="pad-up"]').click();
   await expect(display(page)).toContainText('CH 002');
   await page.locator('[data-control="key-oval"]').click();
-  await page.locator('[data-control="volume"]').hover();
-  await page.mouse.wheel(0, -100);
+  await expect(display(page)).toContainText('CH 002 SETTINGS');
+  await page.locator('[data-control="key-square"]').click();
   await expect(display(page)).toContainText('12.5K');
+  await page.locator('[data-control="key-oval"]').click();
+  await expect(display(page)).not.toContainText('SETTINGS');
 });
 
 test('device choice is kept in the URL and switching back shows the PRC-152', async ({ page }) => {
