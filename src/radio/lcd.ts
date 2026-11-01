@@ -1,10 +1,10 @@
 // Pure LCD frame generator. PLACEHOLDER LAYOUT: the real display layout is Unknown
 // (docs/device-research.md section 2). Row order, wording, and sizes are simulator choices.
 // The in-radio LCD and the enlarged preview both render this one frame.
-import { DIAL_POSITIONS, FREQ_ENTRY_DIGITS, FREQ_ENTRY_INTEGER_DIGITS, LOW_BATTERY_PERCENT } from './config';
+import { DIAL_POSITIONS, PRESET_COUNT, FREQ_ENTRY_DIGITS, FREQ_ENTRY_INTEGER_DIGITS, LOW_BATTERY_PERCENT } from './config';
 import { LIST_WINDOW, MENUS, PRESETS_MENU_TITLE, type MenuItem } from './menus';
 import { activeFrequencyHz, currentMenuId, isReceiving } from './stateMachine';
-import type { LcdFrame, LcdRow, RadioState } from './types';
+import type { LcdChannel, LcdFrame, LcdRow, RadioState } from './types';
 
 /** Caption for the placeholder LCD area. Required wording from the v2 contract. */
 export const LCD_LABEL = 'Simulated LCD (layout approximated)';
@@ -27,6 +27,7 @@ export function renderLcd(state: RadioState): LcdFrame {
   return {
     screen: state.screen,
     rows: rowsFor(state),
+    ...(state.screen === 'main' || state.screen === 'locked' ? { channels: channelWindow(state) } : {}),
     indicators: {
       power: state.power === 'on',
       tx: state.mode === 'transmit',
@@ -65,6 +66,18 @@ function rowsFor(state: RadioState): LcdRow[] {
 
 const mhz = (hz: number): string => `${(hz / 1_000_000).toFixed(3)} MHz`;
 const pad2 = (n: number): string => String(n).padStart(2, '0');
+
+/** Assumed layout: five presets, the active one in the middle. Slots outside 1..PRESET_COUNT stay blank. */
+export const CHANNEL_WINDOW = 5;
+export function channelWindow(state: RadioState): LcdChannel[] {
+  const half = Math.floor(CHANNEL_WINDOW / 2);
+  return Array.from({ length: CHANNEL_WINDOW }, (_, i) => {
+    const n = state.preset + i - half;
+    if (n < 1 || n > PRESET_COUNT) return { text: '', selected: false };
+    const text = `${pad2(n)} ${state.presets[n - 1].name}`;
+    return i === half ? { text, detail: mhz(activeFrequencyHz(state)), selected: true } : { text, selected: false };
+  });
+}
 
 function mainRows(state: RadioState): LcdRow[] {
   const preset = state.presets[state.preset - 1];
