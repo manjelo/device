@@ -221,7 +221,8 @@ export function formatMhz(hz: number): string {
   return (hz / 1_000_000).toFixed(hz % 1000 === 0 ? 3 : 4);
 }
 
-export type LcdChannelRow = { text: string; freq: string; flags: string; selected: boolean };
+export type LcdOption = { key: 'H' | 'C' | 'S'; on: boolean };
+export type LcdChannelRow = { text: string; freq: string; flags: string; opts: LcdOption[]; selected: boolean };
 export type LcdSettingRow = { key: string; label: string; value: string; selected: boolean };
 export type Prc2100vLcd = {
   on: true;
@@ -241,6 +242,12 @@ export type Prc2100vLcd = {
   /** Setting page rows. */
   settings: LcdSettingRow[];
 };
+
+const optsOf = (c: Channel): LcdOption[] => [
+  { key: 'H', on: !!c.hop },
+  { key: 'C', on: !!c.encrypt },
+  { key: 'S', on: !!c.secure },
+];
 
 const flagsOf = (c: Channel): string => [c.hop && 'H', c.encrypt && 'C', c.secure && 'S'].filter(Boolean).join(' ');
 
@@ -273,9 +280,9 @@ export function renderLcd(s: Prc2100vState): Prc2100vLcd | null {
     state: s.mode === 'transmit' ? 'TX' : isReceiving(s) ? 'RX' : '',
     channels: Array.from({ length: CHANNEL_WINDOW }, (_, i) => {
       const n = s.channel + i - half;
-      if (n < 1 || n > CHANNEL_COUNT) return { text: '', freq: '', flags: '', selected: false };
+      if (n < 1 || n > CHANNEL_COUNT) return { text: '', freq: '', flags: '', opts: [], selected: false };
       const ch = s.channels[n - 1];
-      return { text: ch3(n), freq: formatMhz(ch.frequencyHz), flags: flagsOf(ch), selected: i === half };
+      return { text: ch3(n), freq: formatMhz(ch.frequencyHz), flags: flagsOf(ch), opts: optsOf(ch), selected: i === half };
     }),
     flags: flagsOf(c),
     settings: SETTING_ROWS.map((r, i) => ({

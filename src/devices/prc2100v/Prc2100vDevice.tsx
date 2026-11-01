@@ -128,7 +128,12 @@ export function Prc2100vDevice({ link, onToggleLink }: { link: LinkSettings; onT
                     {c.selected && <rect x="212" y={47 + i * 16} width="202" height="16" fill="#1c2a17" fillOpacity="1" />}
                     <g fill={c.selected ? '#a9c08f' : '#1c2a17'}>
                       <text x="218" y={59.5 + i * 16}>{c.text && `CH ${c.text}`}</text>
-                      <text x="290" y={59.5 + i * 16} fontSize="10">{c.flags}</text>
+                      {c.opts.map((o, k) => (
+                        <g key={o.key} fillOpacity={o.on ? 1 : 0.35}>
+                          <text x={282 + k * 18} y={57 + i * 16} fontSize="9" fontWeight={o.on ? 700 : 400}>{o.key}</text>
+                          <rect x={282 + k * 18} y={59.5 + i * 16} width="8" height="2" fillOpacity={o.on ? 1 : 0.5} />
+                        </g>
+                      ))}
                       <text x="408" y={59.5 + i * 16} textAnchor="end">{c.freq}</text>
                     </g>
                   </g>
