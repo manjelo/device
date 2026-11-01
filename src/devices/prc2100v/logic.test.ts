@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Prc2100vAction } from './logic';
-import { FREQ_MAX_HZ, FREQ_MIN_HZ, activeFrequencyHz, formatMhz, initialState, isReceiving, reduce, renderLcd } from './logic';
+import { scrambleSeed, FREQ_MAX_HZ, FREQ_MIN_HZ, activeFrequencyHz, formatMhz, initialState, isReceiving, reduce, renderLcd, activeChannel } from './logic';
 
 const run = (...actions: Prc2100vAction[]) => actions.reduce(reduce, initialState);
 const on = run({ type: 'power-toggle' });
@@ -79,13 +79,13 @@ describe('PRC2100V channel window and setting page', () => {
     expect(renderLcd(open)!.settings.map((r) => r.key)).toEqual(['F', 'H', 'C', 'S']);
     expect(reduce(open, { type: 'settings-toggle' }).screen).toBe('main');
   });
-  it('on the setting page pad up/down moves the row and left/right tunes only on the frequency row', () => {
+  it('on the setting page pad up/down moves the row and left/right tunes only on the frequency row (other rows set their option)', () => {
     let s = reduce(on, { type: 'settings-toggle' });
     expect(activeFrequencyHz(reduce(s, { type: 'tune', delta: 1 }))).toBe(30_025_000);
     expect(reduce(s, { type: 'channel', delta: -1 }).channel).toBe(1); // up on the first row stays put
     s = reduce(s, { type: 'channel', delta: 1 }); // down
     expect(s.cursor).toBe(1);
-    expect(reduce(s, { type: 'tune', delta: 1 })).toBe(s);
+    expect(activeFrequencyHz(reduce(s, { type: 'tune', delta: 1 }))).toBe(FREQ_MIN_HZ); // right sets H, not the frequency
     expect(reduce(s, { type: 'channel', delta: -1 }).cursor).toBe(0);
   });
   it('is closed by power off and cannot open while keyed', () => {
@@ -93,3 +93,56 @@ describe('PRC2100V channel window and setting page', () => {
     expect(reduce(reduce(on, { type: 'ptt', down: true }), { type: 'settings-toggle' }).screen).toBe('main');
   });
 });
+
+describe('PRC2100V H, C and S options', () => {
+  const open = reduce(on, { type: 'settings-toggle' });
+  const down = { type: 'channel', delta: 1 } as const;
+  const up = { type: 'channel', delta: -1 } as const;
+  const right = { type: 'tune', delta: 1 } as const;
+  const left = { type: 'tune', delta: -1 } as const;
+  const at = (rows: number) => Array.from({ length: rows }, () => down).reduce(reduce, open);
+
+  it('H is a visual flag, right turns it on and left off, and it shows on the channel row', () => {
+    const s = reduce(at(1), right);
+    expect(activeChannelFlags(s)).toBe('H');
+    expect(renderLcd(s)!.channels[2].flags).toBe('H');
+    expect(activeChannelFlags(reduce(s, left))).toBe('');
+    expect(scrambleSeed(s)).toBeNull();
+  });
+  it('options belong to the selected channel only', () => {
+    const s = reduce(at(2), right);
+    const other = reduce(reduce(s, { type: 'settings-toggle' }), down);
+    expect(activeChannelFlags(other)).toBe('');
+  });
+  it('C turns on voice scrambling', () => {
+    const s = reduce(at(2), right);
+    expect(activeChannelFlags(s)).toBe('C');
+    expect(scrambleSeed(s)).not.toBeNull();
+    expect(scrambleSeed(reduce(s, left))).toBeNull();
+  });
+  it('S on opens the 4-digit password: up/down changes a digit, right moves on, last digit finishes', () => {
+    let s = reduce(at(3), right);
+    expect(s.editing).toBe(true);
+    s = reduce(reduce(s, up), up); // 0 -> 1 -> 2
+    expect(renderLcd(s)!.settings[3].value).toBe('ON [2]000');
+    s = [right, right, right].reduce(reduce, s);
+    expect(s.editing).toBe(true);
+    s = reduce(reduce(s, up), right); // last digit 1, then done
+    expect(s.editing).toBe(false);
+    expect(activeChannel(s).password).toBe('2001');
+    expect(renderLcd(s)!.settings[3].value).toBe('ON ****');
+  });
+  it('the password changes the scramble seed, so different passwords do not understand each other', () => {
+    const a = reduce(reduce(at(3), right), { type: 'settings-toggle' });
+    const b = reduce(reduce(reduce(at(3), right), up), { type: 'settings-toggle' });
+    expect(scrambleSeed(a)).not.toBe(scrambleSeed(b));
+  });
+  it('oval confirms the password first, and only then closes the page', () => {
+    const s = reduce(at(3), right);
+    expect(reduce(s, { type: 'settings-toggle' }).screen).toBe('settings');
+    expect(reduce(reduce(s, { type: 'settings-toggle' }), { type: 'settings-toggle' }).screen).toBe('main');
+  });
+});
+function activeChannelFlags(s: typeof on): string {
+  return renderLcd(s)!.flags;
+}

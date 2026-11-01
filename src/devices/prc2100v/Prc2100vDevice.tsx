@@ -3,7 +3,7 @@ import { LinkControls } from '../../components/LinkControls';
 import { linkStatusText } from '../../components/linkStatus';
 import type { LinkSettings } from '../../hooks/useLink';
 import { useVoice, type VoiceAdapter } from '../../hooks/useVoice';
-import { TX_POWER_W, VOLUME_MAX, activeFrequencyHz, isReceiving, renderLcd, type Prc2100vState } from './logic';
+import { TX_POWER_W, VOLUME_MAX, activeFrequencyHz, isReceiving, scrambleSeed, renderLcd, type Prc2100vState } from './logic';
 import { useProc2100v, type Prc2100vControl } from './useProc2100v';
 
 const VOICE: VoiceAdapter<Prc2100vState> = {
@@ -11,6 +11,7 @@ const VOICE: VoiceAdapter<Prc2100vState> = {
   receiving: isReceiving,
   transmitting: (s) => s.mode === 'transmit',
   gain: (s) => (s.power === 'on' ? s.volume / VOLUME_MAX : 0),
+  scrambleSeed: scrambleSeed,
 };
 
 type Row = { control: string; does: string; status: string; keys: string };
@@ -21,8 +22,8 @@ const ROWS: Row[] = [
   { control: 'Pad right / left', does: 'Tune one channel-spacing step up / down', status: 'Assumed function (range and spacing Documented)', keys: 'Arrow right / left' },
   { control: 'Square key', does: 'Cycle mode FF, FH, DIG (label only, not simulated)', status: 'Assumed function (modes Documented)', keys: 'M' },
   { control: 'Round key', does: 'Cycle TX power 0.5, 5, 10 W', status: 'Assumed function (3 settings, 0.5 and 10 W Documented; 5 W Assumed)', keys: 'W' },
-  { control: 'Oval key (third key)', does: 'Open / close the setting page of the selected channel: frequency, H hopping freq, C encryption, S secure (H, C, S not simulated yet)', status: 'Assumed function and layout', keys: 'S' },
-  { control: 'Pad and square key on the setting page', does: 'Pad up / down moves the row, left / right tunes the frequency, the square key toggles channel spacing 25 / 12.5 kHz', status: 'Assumed function (spacings Documented)', keys: 'Arrows, M' },
+  { control: 'Oval key (third key)', does: 'Open / close the setting page of the selected channel: frequency, H hopping freq, C encryption, S secure (H is a visual flag only; C encrypts and decrypts link voice; S adds a password)', status: 'Assumed function and layout', keys: 'S' },
+  { control: 'Pad and square key on the setting page', does: 'Pad up / down moves the row. F: left / right tunes. H, C, S: left = off, right = on. S on opens the 4-digit password: up / down changes the digit, right moves on (last digit = done), oval or square key = done. The square key toggles channel spacing 25 / 12.5 kHz', status: 'Assumed function (spacings Documented)', keys: 'Arrows, M' },
   { control: 'PTT button (below the radio)', does: 'Hold to transmit on the link', status: 'Simulator feature: no PTT is visible on the front panel', keys: 'T (hold)' },
   { control: 'XMODE, RADIO, AMP, top-left connectors', does: 'Not interactive', status: 'Verified-photo (label and position only); function Unknown', keys: '-' },
 ];
@@ -57,7 +58,7 @@ export function Prc2100vDevice({ link, onToggleLink }: { link: LinkSettings; onT
   const lcd = renderLcd(state);
   const on = state.power === 'on';
   const lcdText = lcd
-    ? `${lcd.title} ${lcd.freq} MHz ${lcd.channel} ${lcd.mode} ${lcd.spacing} ${lcd.volume} PWR ${TX_POWER_W[state.powerIdx]} W${lcd.state ? ` ${lcd.state}` : ''}${lcd.screen === 'settings' ? ` Selected: ${lcd.settings.find((r) => r.selected)?.label}` : ''}`
+    ? `${lcd.title} ${lcd.freq} MHz ${lcd.channel} ${lcd.mode} ${lcd.spacing} ${lcd.volume} PWR ${TX_POWER_W[state.powerIdx]} W${lcd.state ? ` ${lcd.state}` : ''}${lcd.flags ? ` Options ${lcd.flags}` : ''}${lcd.screen === 'settings' ? ` Selected: ${lcd.settings.find((r) => r.selected)?.label} ${lcd.settings.find((r) => r.selected)?.value}` : ''}`
     : 'Display off';
 
   // Volume: drag up/down or use the wheel; a plain click steps left half down, right half up.
@@ -127,6 +128,7 @@ export function Prc2100vDevice({ link, onToggleLink }: { link: LinkSettings; onT
                     {c.selected && <rect x="212" y={47 + i * 16} width="202" height="16" fill="#1c2a17" fillOpacity="1" />}
                     <g fill={c.selected ? '#a9c08f' : '#1c2a17'}>
                       <text x="218" y={59.5 + i * 16}>{c.text && `CH ${c.text}`}</text>
+                      <text x="290" y={59.5 + i * 16} fontSize="10">{c.flags}</text>
                       <text x="408" y={59.5 + i * 16} textAnchor="end">{c.freq}</text>
                     </g>
                   </g>

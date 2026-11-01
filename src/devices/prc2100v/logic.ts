@@ -12,7 +12,21 @@ export const TX_POWER_W = [0.5, 5, 10] as const; // 500 mW and 10 W Documented, 
 export const VOLUME_MAX = 10; // Assumed scale
 
 export type Mode = (typeof MODES)[number];
-export type Channel = { frequencyHz: number; mode: Mode; spacingHz: number };
+export type Channel = {
+  frequencyHz: number;
+  mode: Mode;
+  spacingHz: number;
+  /** H hopping frequency: a visual flag only, nothing is simulated. */
+  hop: boolean;
+  /** C encryption: voice on the link is encrypted when sent and decrypted when received (simulator scrambling). */
+  encrypt: boolean;
+  /** S secure: the channel has a password. Radios need the same password to understand each other. */
+  secure: boolean;
+  /** Four-digit password used when `secure` is on. */
+  password: string;
+};
+export const PASSWORD_DIGITS = 4;
+export const DEFAULT_PASSWORD = '0000';
 
 export type Prc2100vState = {
   power: 'off' | 'on';
@@ -26,6 +40,10 @@ export type Prc2100vState = {
   screen: 'main' | 'settings';
   /** Row cursor on the settings page: index into SETTING_ROWS. */
   cursor: number;
+  /** True while the password digits of the secure row are being edited. */
+  editing: boolean;
+  /** Digit being edited, 0..PASSWORD_DIGITS-1. */
+  editPos: number;
   /** Other simulator instances heard over the link: sender id -> frequency in Hz. Simulator-specific. */
   heard: Record<string, number>;
 };
@@ -58,6 +76,10 @@ export function defaultChannels(): Channel[] {
     frequencyHz: FREQ_MIN_HZ + i * 500_000,
     mode: 'FF' as Mode,
     spacingHz: 25_000,
+    hop: false,
+    encrypt: false,
+    secure: false,
+    password: DEFAULT_PASSWORD,
   }));
 }
 
@@ -70,6 +92,8 @@ export const initialState: Prc2100vState = {
   powerIdx: 0,
   screen: 'main',
   cursor: 0,
+  editing: false,
+  editPos: 0,
   heard: {},
 };
 
@@ -97,6 +121,20 @@ function snap(hz: number, spacingHz: number): number {
   return out;
 }
 
+/** The password with one digit moved by delta (wraps 0-9). */
+function stepDigit(password: string, pos: number, delta: number): string {
+  const digits = password.padEnd(PASSWORD_DIGITS, '0').split('');
+  digits[pos] = String((Number(digits[pos]) + delta + 10) % 10);
+  return digits.join('');
+}
+
+/** Seed for voice scrambling on the active channel, or null when neither C nor S is on. S adds the password. */
+export function scrambleSeed(s: Prc2100vState): string | null {
+  const c = activeChannel(s);
+  if (!c.encrypt && !c.secure) return null;
+  return `datron:${c.encrypt ? 'C' : '-'}:${c.secure ? c.password : '-'}`;
+}
+
 function withChannel(s: Prc2100vState, patch: Partial<Channel>): Prc2100vState {
   const channels = s.channels.slice();
   channels[s.channel - 1] = { ...activeChannel(s), ...patch };
@@ -111,7 +149,7 @@ export function reduce(s: Prc2100vState, a: Prc2100vAction): Prc2100vState {
     return { ...s, heard };
   }
   if (a.type === 'power-toggle') {
-    return s.power === 'off' ? { ...s, power: 'on' } : { ...s, power: 'off', mode: 'standby', screen: 'main', cursor: 0 };
+    return s.power === 'off' ? { ...s, power: 'on' } : { ...s, power: 'off', mode: 'standby', screen: 'main', cursor: 0, editing: false, editPos: 0 };
   }
   if (s.power !== 'on') return s; // every other control is inert while off
   switch (a.type) {
@@ -123,12 +161,27 @@ export function reduce(s: Prc2100vState, a: Prc2100vAction): Prc2100vState {
       return { ...s, powerIdx: (s.powerIdx + 1) % TX_POWER_W.length };
   }
   if (s.mode === 'transmit') return s; // no retuning while keyed
+  // The oval key (or the mode key) confirms a password being edited. Otherwise the oval key opens and closes the page.
+  if (s.editing && (a.type === 'settings-toggle' || a.type === 'cycle-mode')) return { ...s, editing: false, editPos: 0 };
   if (a.type === 'settings-toggle') return { ...s, screen: s.screen === 'main' ? 'settings' : 'main', cursor: 0 };
   if (s.screen === 'settings') {
-    // On the setting page the pad up/down moves the row cursor, left/right tunes on the frequency row, and the mode
-    // key (otherwise label-only) toggles the channel spacing, which used to be on the oval key.
-    if (a.type === 'channel') return { ...s, cursor: clamp(s.cursor + a.delta, 0, SETTING_ROWS.length - 1) };
-    if (a.type === 'tune' && s.cursor !== 0) return s;
+    // Setting page. Pad up/down moves the row (or changes the password digit while editing). Pad left/right tunes the
+    // frequency row, switches H, C and S off (left) or on (right), and moves between password digits while editing.
+    // The mode key (otherwise label-only) toggles the channel spacing, which used to be on the oval key.
+    if (a.type === 'channel') {
+      if (s.editing) return withChannel(s, { password: stepDigit(activeChannel(s).password, s.editPos, -a.delta) });
+      return { ...s, cursor: clamp(s.cursor + a.delta, 0, SETTING_ROWS.length - 1) };
+    }
+    if (a.type === 'tune' && s.cursor !== 0) {
+      const on = a.delta === 1;
+      if (s.cursor === 1) return withChannel(s, { hop: on });
+      if (s.cursor === 2) return withChannel(s, { encrypt: on });
+      if (s.editing) {
+        const pos = s.editPos + a.delta;
+        return pos >= PASSWORD_DIGITS ? { ...s, editing: false, editPos: 0 } : { ...s, editPos: Math.max(0, pos) };
+      }
+      return on ? { ...withChannel(s, { secure: true }), editing: true, editPos: 0 } : withChannel(s, { secure: false });
+    }
     if (a.type === 'cycle-mode') a = { type: 'cycle-spacing' };
   }
   switch (a.type) {
@@ -156,7 +209,7 @@ export function formatMhz(hz: number): string {
   return (hz / 1_000_000).toFixed(hz % 1000 === 0 ? 3 : 4);
 }
 
-export type LcdChannelRow = { text: string; freq: string; selected: boolean };
+export type LcdChannelRow = { text: string; freq: string; flags: string; selected: boolean };
 export type LcdSettingRow = { key: string; label: string; value: string; selected: boolean };
 export type Prc2100vLcd = {
   on: true;
@@ -171,9 +224,23 @@ export type Prc2100vLcd = {
   state: 'TX' | 'RX' | '';
   /** Main screen: CHANNEL_WINDOW channels, the selected one in the middle. Slots outside 1..CHANNEL_COUNT are blank. */
   channels: LcdChannelRow[];
+  /** Active channel flags, e.g. "H C S" (letters of the options that are on). */
+  flags: string;
   /** Setting page rows. */
   settings: LcdSettingRow[];
 };
+
+const flagsOf = (c: Channel): string => [c.hop && 'H', c.encrypt && 'C', c.secure && 'S'].filter(Boolean).join(' ');
+
+/** Right-hand text of one setting row. The password is masked unless it is being edited. */
+function settingValue(s: Prc2100vState, c: Channel, row: number): string {
+  if (row === 0) return `${formatMhz(c.frequencyHz)} MHz ${c.spacingHz === 12_500 ? '12.5K' : '25K'}`;
+  if (row === 1) return c.hop ? 'ON' : 'OFF';
+  if (row === 2) return c.encrypt ? 'ON' : 'OFF';
+  if (!c.secure) return 'OFF';
+  if (!s.editing) return 'ON ****';
+  return `ON ${c.password.split('').map((d, i) => (i === s.editPos ? `[${d}]` : d)).join('')}`;
+}
 
 /** Text the LCD shows. Field choice is Assumed (the photo shows the main frequency only). */
 export function renderLcd(s: Prc2100vState): Prc2100vLcd | null {
@@ -194,13 +261,15 @@ export function renderLcd(s: Prc2100vState): Prc2100vLcd | null {
     state: s.mode === 'transmit' ? 'TX' : isReceiving(s) ? 'RX' : '',
     channels: Array.from({ length: CHANNEL_WINDOW }, (_, i) => {
       const n = s.channel + i - half;
-      if (n < 1 || n > CHANNEL_COUNT) return { text: '', freq: '', selected: false };
-      return { text: ch3(n), freq: formatMhz(s.channels[n - 1].frequencyHz), selected: i === half };
+      if (n < 1 || n > CHANNEL_COUNT) return { text: '', freq: '', flags: '', selected: false };
+      const ch = s.channels[n - 1];
+      return { text: ch3(n), freq: formatMhz(ch.frequencyHz), flags: flagsOf(ch), selected: i === half };
     }),
+    flags: flagsOf(c),
     settings: SETTING_ROWS.map((r, i) => ({
       key: r.key,
       label: r.label,
-      value: i === 0 ? `${formatMhz(c.frequencyHz)} MHz ${c.spacingHz === 12_500 ? '12.5K' : '25K'}` : '',
+      value: settingValue(s, c, i),
       selected: i === s.cursor,
     })),
   };

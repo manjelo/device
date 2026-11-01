@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { activeFrequencyHz, isReceiving } from '../radio';
 import type { RadioState } from '../radio';
 import { AUDIO_FRAME_SAMPLES, AUDIO_SAMPLE_RATE } from '../net/audio';
+import { scramblePcm } from '../net/scramble';
 import type { Transport } from '../net/transport';
 import { VOLUME_MAX } from '../radio/config';
 
@@ -46,6 +47,8 @@ export type VoiceAdapter<S> = {
   receiving: (state: S) => boolean;
   transmitting: (state: S) => boolean;
   gain: (state: S) => number;
+  /** Seed for voice scrambling on the active channel, or null for clear voice. The same seed on both ends is needed. */
+  scrambleSeed?: (state: S) => string | null;
 };
 
 const PRC152_VOICE: VoiceAdapter<RadioState> = {
@@ -108,9 +111,11 @@ export function useVoice<S = RadioState>(
         const a = adapterRef.current;
         if (!a.receiving(s) || packet.frequencyHz !== a.frequencyHz(s)) return;
         framesRef.current += 1;
-        const buffer = context.createBuffer(1, packet.pcm.length, AUDIO_SAMPLE_RATE);
+        const seed = a.scrambleSeed?.(s) ?? null;
+        const pcm = seed === null ? packet.pcm : scramblePcm(packet.pcm, seed);
+        const buffer = context.createBuffer(1, pcm.length, AUDIO_SAMPLE_RATE);
         const out = buffer.getChannelData(0);
-        for (let i = 0; i < packet.pcm.length; i += 1) out[i] = packet.pcm[i] / 0x8000;
+        for (let i = 0; i < pcm.length; i += 1) out[i] = pcm[i] / 0x8000;
         const source = context.createBufferSource();
         source.buffer = buffer;
         source.connect(gain);
@@ -138,7 +143,9 @@ export function useVoice<S = RadioState>(
       capture.port.onmessage = (e: MessageEvent<Int16Array>) => {
         const s = stateRef.current;
         const a = adapterRef.current;
-        if (a.transmitting(s)) transport.sendAudio?.(a.frequencyHz(s), e.data);
+        if (!a.transmitting(s)) return;
+        const seed = a.scrambleSeed?.(s) ?? null;
+        transport.sendAudio?.(a.frequencyHz(s), seed === null ? e.data : scramblePcm(e.data, seed));
       };
       const mute = context.createGain(); // the worklet only runs while connected toward the destination
       mute.gain.value = 0;
