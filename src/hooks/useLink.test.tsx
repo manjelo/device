@@ -20,7 +20,7 @@ function makeBus() {
   return { create, sent, inject: (m: LinkMessage) => endpoints.forEach((e) => e(m)) };
 }
 
-const TABS = { mode: 'tabs' } as const;
+const TABS = { mode: 'network' } as const;
 const on = () => reduce(reduce(initialState, { type: 'control', id: 'power', event: 'press' }), { type: 'tick' });
 
 describe('useLink', () => {

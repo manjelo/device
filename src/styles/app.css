@@ -432,3 +432,15 @@ code {
     gap: 2px;
   }
 }
+
+/* Datron PRC2100V device view */
+.p21-panel { max-width: 760px; }
+.p21-svg { width: 100%; height: auto; touch-action: manipulation; user-select: none; }
+.p21-ctl { cursor: pointer; }
+.p21-ctl:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.rs-link-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; }
+.rs-device-picker { margin-top: 8px; justify-content: flex-start; }
+.p21-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.p21-table th, .p21-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.m850-panel { max-width: 420px; }
+.m850-svg { width: 100%; max-width: 320px; height: auto; touch-action: manipulation; user-select: none; }

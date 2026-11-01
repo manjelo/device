@@ -1,18 +1,46 @@
-import { useEffect, useState } from 'react';
-import { DeviceDetails } from './components/DeviceDetails';
-import { RadioView } from './components/RadioView';
-import { ViewSwitcher } from './components/ViewSwitcher';
-import type { ViewId } from './components/controlInfo';
-import { useRadio } from './hooks/useRadio';
-import { useSound } from './hooks/useSound';
-import { useVoice } from './hooks/useVoice';
+import { Suspense, lazy, useEffect, useState } from 'react';
+import { Prc152Device } from './components/Prc152Device';
 import type { LinkMode, LinkSettings } from './hooks/useLink';
+
+// The PRC2100V is loaded on demand so the PRC-152 bundle does not grow.
+const Mtp850Device = lazy(() => import('./devices/mtp850/Mtp850Device').then((m) => ({ default: m.Mtp850Device })));
+const Prc2100vDevice = lazy(() => import('./devices/prc2100v/Prc2100vDevice').then((m) => ({ default: m.Prc2100vDevice })));
 
 type Theme = 'light' | 'dark';
 const THEME_KEY = 'radiosim-theme';
 const LINK_KEY = 'radiosim-link';
-const LINK_MODES: LinkMode[] = ['off', 'tabs', 'network'];
-const LINK_LABEL: Record<LinkMode, string> = { off: 'off', tabs: 'this browser', network: 'network' };
+const DEVICE_KEY = 'radiosim-device';
+const LINK_MODES: LinkMode[] = ['off', 'network'];
+
+type DeviceId = 'prc152' | 'prc2100v' | 'mtp850';
+const DEVICES: { id: DeviceId; name: string; blurb: string }[] = [
+  {
+    id: 'prc152',
+    name: 'Harris Falcon III AN/PRC-152',
+    blurb: 'Simulated Harris Falcon III AN/PRC-152 (original model). An approximation built from incomplete sources. Not a device reference. No RF is transmitted.',
+  },
+  {
+    id: 'prc2100v',
+    name: 'Datron PRC2100V (Spectre V)',
+    blurb: 'Simulated Datron PRC2100V tactical VHF manpack, front panel only. Built from a public datasheet and one photograph; most control functions are Assumed. Not a device reference. No RF is transmitted.',
+  },
+  {
+    id: 'mtp850',
+    name: 'Motorola MTP850 (TETRA)',
+    blurb: 'Simulated Motorola MTP850 TETRA handheld (not the Ex variant), front panel only. Built from a public brochure; key functions beyond the printed labels are Assumed and there are no menus. Not a device reference. No RF is transmitted.',
+  },
+];
+
+function initialDevice(): DeviceId {
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get('device');
+    const stored = fromUrl ?? localStorage.getItem(DEVICE_KEY);
+    if (DEVICES.some((d) => d.id === stored)) return stored as DeviceId;
+  } catch {
+    // Storage or URL access can fail. Use the default.
+  }
+  return 'prc152';
+}
 
 function initialLink(): LinkSettings {
   try {
@@ -23,9 +51,8 @@ function initialLink(): LinkSettings {
   } catch {
     // Storage can be blocked or hold junk. Use the default.
   }
-  return { mode: 'tabs' };
+  return { mode: 'network' };
 }
-
 
 function initialTheme(): Theme {
   try {
@@ -39,22 +66,12 @@ function initialTheme(): Theme {
     : 'light';
 }
 
-function linkStatusText(link: LinkSettings, status: string, mic: string, framesIn: number): string {
-  if (link.mode === 'off') return 'Link off.';
-  if (link.mode === 'tabs') return 'Link: tabs of this browser (no voice).';
-  if (status !== 'connected') return `Network ${status === 'offline' ? 'offline, retrying' : 'connecting'}.`;
-  const micText =
-    mic === 'ready' ? 'mic ready' : mic === 'blocked' ? 'mic blocked (listen only)' : mic === 'unsupported' ? 'voice unsupported (needs https)' : 'mic starting';
-  return `Network connected, ${micText}, audio in ${framesIn}.`;
-}
-
 export default function App() {
   const [link, setLink] = useState<LinkSettings>(initialLink);
-  const radio = useRadio(link);
-  const voice = useVoice(radio.state, radio.link.transport, link.mode === 'network');
-  const sound = useSound(radio.state.sound);
-  const [view, setView] = useState<ViewId>('front');
+  const [device, setDevice] = useState<DeviceId>(initialDevice);
   const [theme, setTheme] = useState<Theme>(initialTheme);
+  const toggleLink = () =>
+    setLink((l) => ({ ...l, mode: LINK_MODES[(LINK_MODES.indexOf(l.mode) + 1) % LINK_MODES.length] }));
 
   useEffect(() => {
     try {
@@ -65,6 +82,17 @@ export default function App() {
   }, [link]);
 
   useEffect(() => {
+    try {
+      localStorage.setItem(DEVICE_KEY, device);
+      const url = new URL(window.location.href);
+      url.searchParams.set('device', device);
+      window.history.replaceState(null, '', url);
+    } catch {
+      // Ignore: the device still applies for this page load.
+    }
+  }, [device]);
+
+  useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try {
       localStorage.setItem(THEME_KEY, theme);
@@ -73,6 +101,8 @@ export default function App() {
     }
   }, [theme]);
 
+  const current = DEVICES.find((d) => d.id === device) ?? DEVICES[0];
+
   return (
     <div className="app">
       <header className="app-header">
@@ -80,10 +110,20 @@ export default function App() {
           <h1>
             RadioSim <span className="rs-sim-tag">Simulator</span>
           </h1>
-          <p className="rs-muted">
-            Simulated Harris Falcon III AN/PRC-152 (original model). An approximation built from incomplete sources. Not a
-            device reference. No RF is transmitted.
-          </p>
+          <p className="rs-muted">{current.blurb}</p>
+          <div className="rs-views rs-device-picker" role="group" aria-label="Device">
+            {DEVICES.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                className="rs-view-btn"
+                aria-pressed={device === d.id}
+                onClick={() => setDevice(d.id)}
+              >
+                {d.name}
+              </button>
+            ))}
+          </div>
         </div>
         <button
           type="button"
@@ -95,41 +135,17 @@ export default function App() {
       </header>
 
       <main className="app-main">
-        <section className="radio-panel" aria-label="Radio">
-          <ViewSwitcher view={view} onChange={setView} />
-          <RadioView view={view} radio={radio} />
-          <div className="rs-sound">
-            <button
-              type="button"
-              className="rs-view-btn"
-              aria-pressed={sound.enabled}
-              disabled={sound.unavailable}
-              onClick={sound.toggle}
-            >
-              {`Sound: ${sound.enabled ? 'on' : 'off'}`}
-            </button>
-            {sound.unavailable && <p className="rs-muted rs-small">Sound is not available in this browser.</p>}
-            <button
-              type="button"
-              className="rs-view-btn"
-              aria-pressed={link.mode !== 'off'}
-              onClick={() =>
-                setLink((l) => ({ ...l, mode: LINK_MODES[(LINK_MODES.indexOf(l.mode) + 1) % LINK_MODES.length] }))
-              }
-            >
-              {`Link: ${LINK_LABEL[link.mode]}`}
-            </button>
-            <p className="rs-muted rs-small" role="status" aria-label="Link status">
-              {linkStatusText(link, radio.link.status, voice.status, voice.framesIn)}
-            </p>
-            <p className="rs-muted rs-small">
-              Link is a simulator feature. A radio hears another one that is keyed on the same frequency. Network mode
-              carries push-to-talk voice through a relay to everyone else using the site. No RF.
-            </p>
-          </div>
-        </section>
-
-        <DeviceDetails lastControl={radio.lastControl} />
+        {device === 'prc152' ? (
+          <Prc152Device key="prc152" link={link} onToggleLink={toggleLink} />
+        ) : (
+          <Suspense fallback={<p className="rs-muted">Loading device...</p>}>
+            {device === 'mtp850' ? (
+              <Mtp850Device key="mtp850" link={link} onToggleLink={toggleLink} />
+            ) : (
+              <Prc2100vDevice key="prc2100v" link={link} onToggleLink={toggleLink} />
+            )}
+          </Suspense>
+        )}
       </main>
     </div>
   );

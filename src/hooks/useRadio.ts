@@ -22,7 +22,7 @@ export type RadioControls = {
   lcd: LcdFrame;
   /** Most recently pressed or turned control, for the info panel. */
   lastControl: ControlId | null;
-  /** Simulator link to other instances (tabs or network). */
+  /** Simulator link to other instances (network). */
   link: { status: LinkStatus; transport: Transport | null };
   /** Pointer press (or Enter/Space press) on a control. Holds it until released. `pointerId` ties the hold to its pointer. */
   pointerDown: (id: ControlId, pointerId?: number) => void;

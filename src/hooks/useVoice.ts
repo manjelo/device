@@ -40,11 +40,28 @@ function voiceSupported(): boolean {
   );
 }
 
-export function useVoice(
-  state: RadioState,
+/** How voice reads a device: its tuned frequency, whether it is receiving, whether it is keyed, and its volume (0..1). */
+export type VoiceAdapter<S> = {
+  frequencyHz: (state: S) => number;
+  receiving: (state: S) => boolean;
+  transmitting: (state: S) => boolean;
+  gain: (state: S) => number;
+};
+
+const PRC152_VOICE: VoiceAdapter<RadioState> = {
+  frequencyHz: activeFrequencyHz,
+  receiving: isReceiving,
+  transmitting: (s) => s.mode === 'transmit',
+  gain: (s) => s.volume / VOLUME_MAX,
+};
+
+export function useVoice<S = RadioState>(
+  state: S,
   transport: Transport | null,
   enabled: boolean,
+  adapter: VoiceAdapter<S> = PRC152_VOICE as unknown as VoiceAdapter<S>,
 ): { status: VoiceStatus; framesIn: number } {
+  const adapterRef = useRef(adapter);
   const [status, setStatus] = useState<VoiceStatus>('idle');
   const [framesIn, setFramesIn] = useState(0);
   const stateRef = useRef(state);
@@ -52,8 +69,9 @@ export function useVoice(
   const gainRef = useRef<GainNode | null>(null);
   useEffect(() => {
     stateRef.current = state;
-    if (gainRef.current) gainRef.current.gain.value = state.volume / VOLUME_MAX;
-  }, [state]);
+    adapterRef.current = adapter;
+    if (gainRef.current) gainRef.current.gain.value = adapterRef.current.gain(state);
+  }, [state, adapter]);
 
   const canCarryAudio = !!transport?.sendAudio && !!transport.onAudio;
   const active = enabled && canCarryAudio;
@@ -78,7 +96,7 @@ export function useVoice(
       ctx = new AudioContext({ sampleRate: AUDIO_SAMPLE_RATE });
       const context = ctx;
       const gain = context.createGain();
-      gain.gain.value = stateRef.current.volume / VOLUME_MAX;
+      gain.gain.value = adapterRef.current.gain(stateRef.current);
       gain.connect(context.destination);
       gainRef.current = gain;
       if (context.state === 'suspended') await context.resume().catch(() => {});
@@ -87,7 +105,8 @@ export function useVoice(
       const nextAt = new Map<string, number>();
       offAudio = transport.onAudio?.((packet) => {
         const s = stateRef.current;
-        if (!isReceiving(s) || packet.frequencyHz !== activeFrequencyHz(s)) return;
+        const a = adapterRef.current;
+        if (!a.receiving(s) || packet.frequencyHz !== a.frequencyHz(s)) return;
         framesRef.current += 1;
         const buffer = context.createBuffer(1, packet.pcm.length, AUDIO_SAMPLE_RATE);
         const out = buffer.getChannelData(0);
@@ -118,7 +137,8 @@ export function useVoice(
       const capture = new AudioWorkletNode(context, 'pcm-capture');
       capture.port.onmessage = (e: MessageEvent<Int16Array>) => {
         const s = stateRef.current;
-        if (s.mode === 'transmit') transport.sendAudio?.(activeFrequencyHz(s), e.data);
+        const a = adapterRef.current;
+        if (a.transmitting(s)) transport.sendAudio?.(a.frequencyHz(s), e.data);
       };
       const mute = context.createGain(); // the worklet only runs while connected toward the destination
       mute.gain.value = 0;

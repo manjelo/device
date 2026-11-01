@@ -212,13 +212,13 @@ describe('RadioSim UI', () => {
     expect(lcd()).not.toHaveTextContent('OPTIONS');
   });
 
-  it('PRE + and PRE - change the preset and the LCD shows its number, name and frequency at once', () => {
+  it('+ and - retune the active preset by 25 kHz and the LCD shows the new frequency at once', () => {
     render(<App />);
     powerOnToMain();
     fireEvent.keyDown(window, { key: '+' });
-    expect(lcd()).toHaveTextContent('PRESET 02');
-    expect(lcd()).toHaveTextContent('CHAN 02');
-    expect(lcd()).toHaveTextContent('34.500 MHz');
+    expect(lcd()).toHaveTextContent('PRESET 01');
+    expect(lcd()).toHaveTextContent('30.025 MHz');
+    fireEvent.keyDown(window, { key: '-' });
     fireEvent.keyDown(window, { key: '-' });
     expect(lcd()).toHaveTextContent('30.000 MHz');
   });
@@ -463,5 +463,16 @@ describe('PTT release, details summary and in-radio notices', () => {
     fireEvent.keyDown(window, { key: 'Enter' });
     expect(lcd()).toHaveTextContent('UNAVAILABLE IN SIM');
     expect(container.querySelector('.rs-screen-inset')?.textContent).toContain('UNAVAILABLE IN SIM');
+  });
+
+  it('has a device picker that switches to the PRC2100V and back', async () => {
+    vi.useRealTimers(); // the lazy device chunk loads asynchronously
+    render(<App />);
+    expect(screen.getByRole('button', { name: /AN\/PRC-152/ })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: /PRC2100V/ }));
+    expect(await screen.findByRole('group', { name: /PRC2100V front panel/ })).toBeTruthy();
+    expect(screen.getByRole('status', { name: 'Display text' }).textContent).toBe('Display off');
+    fireEvent.click(screen.getByRole('button', { name: /AN\/PRC-152/ }));
+    expect(screen.queryByRole('group', { name: /PRC2100V front panel/ })).toBeNull();
   });
 });

@@ -3,17 +3,15 @@
 import { useEffect, useState } from 'react';
 import type { Dispatch } from 'react';
 import { activeFrequencyHz } from '../radio';
-import type { RadioAction, RadioState } from '../radio';
 import {
-  createBroadcastTransport,
   createWebSocketTransport,
   relayUrl,
   type Transport,
   type TransportStatus,
 } from '../net/transport';
 
-/** Off: no link. Tabs: other tabs of this browser. Network: other devices, through the relay (one open room for everyone). */
-export type LinkMode = 'off' | 'tabs' | 'network';
+/** Off: no link. Network: other devices and tabs, through the relay (one open room for everyone). */
+export type LinkMode = 'off' | 'network';
 export type LinkSettings = { mode: LinkMode };
 /** What the UI shows. 'connecting' and 'offline' only occur in network mode. */
 export type LinkStatus = 'off' | 'connecting' | 'connected' | 'offline';
@@ -26,7 +24,6 @@ export const LINK_EXPIRY_MS = 3000;
 export type TransportFactory = (settings: LinkSettings) => Transport | null;
 
 export const defaultTransportFactory: TransportFactory = (settings) => {
-  if (settings.mode === 'tabs') return createBroadcastTransport();
   if (settings.mode === 'network') return createWebSocketTransport(relayUrl(window.location));
   return null;
 };
@@ -35,17 +32,21 @@ function newInstanceId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `i-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
 }
 
-export function useLink(
-  state: RadioState,
-  dispatch: Dispatch<RadioAction>,
+/** What the link needs from a device: it can be keyed, and it can be told that another instance is keyed. */
+export type RxSignalAction = { type: 'rx-signal'; from: string; frequencyHz: number; active: boolean };
+
+export function useLink<S extends { mode: string }>(
+  state: S,
+  dispatch: Dispatch<RxSignalAction>,
   settings: LinkSettings,
   createTransport: TransportFactory = defaultTransportFactory,
+  frequencyOf: (state: S) => number = activeFrequencyHz as unknown as (state: S) => number,
 ): { status: LinkStatus; transport: Transport | null } {
   const [instanceId] = useState(newInstanceId);
   const [active, setActive] = useState<{ transport: Transport; status: LinkStatus } | null>(null);
 
   const transmitting = state.mode === 'transmit';
-  const frequencyHz = activeFrequencyHz(state);
+  const frequencyHz = frequencyOf(state);
   const { mode } = settings;
 
   // Open the transport and listen. Expire senders that go quiet; forget everyone heard when the link drops.
