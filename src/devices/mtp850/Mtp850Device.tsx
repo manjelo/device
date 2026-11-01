@@ -28,11 +28,12 @@ const ROWS: Row[] = [
   { control: 'PTT (left edge)', does: 'Hold to transmit on the link', status: 'Verified-public-doc (large PTT button)', keys: 'T (hold)' },
   { control: 'Navigation up / down', does: 'Volume', status: 'Assumed', keys: 'Arrow up / down' },
   { control: 'Navigation left / right', does: 'Previous / next talk group', status: 'Assumed', keys: 'Arrow left / right' },
-  { control: 'MENU', does: 'Switch TMO / DMO (the real MENU opens menus; not simulated)', status: 'Assumed', keys: 'M' },
+  { control: 'MENU', does: 'Open / close the Main Menu (Messages, Contacts, Security, Setup, More). Only Setup works: Network (TMO / DMO) and Volume', status: 'Assumed', keys: 'M' },
   { control: 'Digits 1-9, 0', does: 'Type a talk group number', status: 'Assumed', keys: '0-9' },
   { control: 'Call key (green)', does: 'Go to the typed talk group', status: 'Assumed', keys: 'Enter' },
-  { control: 'End / power key (red)', does: 'Short: clear entry. Hold: power off. Short press while off: power on', status: 'Verified-public-doc (power, end, home key); behaviour Assumed', keys: 'P toggles power, Esc / Backspace clears entry' },
-  { control: 'Softkeys, * and #, side programmable buttons', does: 'Not interactive', status: 'Verified-photo (placement); function Unknown', keys: '-' },
+  { control: 'End / power key (red)', does: 'Short: back in menus, else clear entry, else power off. Hold: power off. Short press while off: power on', status: 'Verified-public-doc (power, end, home key); behaviour Assumed', keys: 'P toggles power, Esc / Backspace clears entry' },
+  { control: 'Softkeys (left / right)', does: 'Select / Back while a menu is open', status: 'Assumed; menu layout from a Motorola reference photo', keys: '-' },
+  { control: '* and #, side programmable buttons', does: 'Not interactive', status: 'Verified-photo (placement); function Unknown', keys: '-' },
 ];
 
 function Ctl({ label, role = 'button', down, up, wheel, onActivate, children, id, extra }: {
@@ -72,11 +73,16 @@ export function Mtp850Device({ link, onToggleLink }: { link: LinkSettings; onTog
 
   const endDown = () => {
     endFired.current = false;
+    if (!on) return;
     endTimer.current = window.setTimeout(() => { endFired.current = true; send({ type: 'power-off' }); }, LONG_PRESS_MS);
   };
   const endUp = () => {
     window.clearTimeout(endTimer.current);
-    if (!endFired.current) send(on ? { type: 'end' } : { type: 'power-on' });
+    if (endFired.current) return;
+    // Short press: off -> on; in a menu -> Back; on home with nothing to clear -> power off (Assumed convenience).
+    if (!on) send({ type: 'power-on' });
+    else if (state.menu || state.entry !== '') send({ type: 'end' });
+    else send({ type: 'power-off' });
   };
 
   return (
@@ -117,18 +123,38 @@ export function Mtp850Device({ link, onToggleLink }: { link: LinkSettings; onTog
             <g fontFamily="system-ui, sans-serif" fill="#f4f7fb" aria-hidden="true">
               <text x="100" y="236" fontSize="9" fontWeight="700">{lcd.state}</text>
               <text x="200" y="236" fontSize="9" fontWeight="700" textAnchor="end">{lcd.net}</text>
-              {lcd.emergency && <text x="150" y="256" fontSize="11" fontWeight="800" textAnchor="middle">EMERGENCY</text>}
-              <text x="150" y="276" fontSize="12" textAnchor="middle">{lcd.folder}</text>
-              <text x="150" y="294" fontSize="14" fontWeight="700" textAnchor="middle">{lcd.group}</text>
-              <text x="150" y="312" fontSize="10" textAnchor="middle">{lcd.notice ?? (lcd.entry ? `> ${lcd.entry}` : '')}</text>
+              {lcd.menu ? (
+                <>
+                  <rect x="94" y="224" width="112" height="20" fill="#dfe8f2" />
+                  <text x="150" y="238" fontSize="11" fontWeight="700" textAnchor="middle" fill="#143a66">{lcd.menu.title}</text>
+                  {lcd.menu.rows.map((r, i) => (
+                    <g key={r}>
+                      {i === lcd.menu!.index && <rect x="96" y={248 + i * 14} width="108" height="14" fill="#9fd0a6" />}
+                      <text x="102" y={258 + i * 14} fontSize="10" fontWeight={i === lcd.menu!.index ? 700 : 400} fill={i === lcd.menu!.index ? '#10281a' : '#f4f7fb'}>{r}</text>
+                    </g>
+                  ))}
+                </>
+              ) : (
+                <>
+                  {lcd.emergency && <text x="150" y="256" fontSize="11" fontWeight="800" textAnchor="middle">EMERGENCY</text>}
+                  <text x="150" y="276" fontSize="12" textAnchor="middle">{lcd.folder}</text>
+                  <text x="150" y="294" fontSize="14" fontWeight="700" textAnchor="middle">{lcd.group}</text>
+                  <text x="150" y="312" fontSize="10" textAnchor="middle">{lcd.notice ?? (lcd.entry ? `> ${lcd.entry}` : '')}</text>
+                </>
+              )}
               <rect x="94" y="318" width="112" height="18" fill="#1f6fb8" />
               <text x="100" y="331" fontSize="10" fontWeight="700">{lcd.softLeft}</text>
               <text x="200" y="331" fontSize="10" fontWeight="700" textAnchor="end">{lcd.softRight}</text>
             </g>
           )}
           {/* Softkeys and MENU (function Unknown / Assumed) */}
-          <circle cx="102" cy="368" r="8" fill="#2c3036" stroke="#0b0c0e" /><circle cx="198" cy="368" r="8" fill="#2c3036" stroke="#0b0c0e" />
-          <Ctl id="menu" label="MENU key (assumed: switch TMO / DMO)" down={act({ type: 'menu' })} onActivate={act({ type: 'menu' })}>
+          <Ctl id="soft-left" label="Left softkey (Select in menus)" down={act({ type: 'select' })} onActivate={act({ type: 'select' })}>
+            <circle cx="102" cy="368" r="9" fill="#2c3036" stroke="#0b0c0e" />
+          </Ctl>
+          <Ctl id="soft-right" label="Right softkey (Back in menus)" down={act({ type: 'back' })} onActivate={act({ type: 'back' })}>
+            <circle cx="198" cy="368" r="9" fill="#2c3036" stroke="#0b0c0e" />
+          </Ctl>
+          <Ctl id="menu" label="MENU key (opens the main menu)" down={act({ type: 'menu' })} onActivate={act({ type: 'menu' })}>
             <rect x="120" y="357" width="60" height="22" rx="9" fill="#2c3036" stroke="#0b0c0e" />
             <text x="150" y="372" fontSize="10" fontWeight="700" fill="#cfd3da" textAnchor="middle" aria-hidden="true">MENU</text>
           </Ctl>
@@ -181,7 +207,7 @@ export function Mtp850Device({ link, onToggleLink }: { link: LinkSettings; onTog
         <summary>MTP850 controls and accuracy</summary>
         <p className="rs-muted rs-small">
           Built from the public Motorola MTP850 brochure and its annotated front photograph. No manual was available, so key
-          functions beyond the printed labels are Assumed and there are no menus. This is the plain MTP850, not the MTP850 Ex.
+          functions beyond the printed labels are Assumed and only the Main Menu and its Setup page are simulated. This is the plain MTP850, not the MTP850 Ex.
           No TETRA network, trunking, encryption or GPS is simulated. Not affiliated with or endorsed by Motorola.
         </p>
         <table className="p21-table">

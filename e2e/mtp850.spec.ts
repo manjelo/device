@@ -20,6 +20,12 @@ test('MTP850 powers on, selects talk groups, jumps by number and shows emergency
   await expect(display(page)).toContainText('TalkGrp 123');
 
   await page.locator('[data-control="menu"]').click();
+  await expect(display(page)).toContainText('Main Menu');
+  for (let i = 0; i < 3; i += 1) await page.locator('[data-control="nav-down"]').click();
+  await page.locator('[data-control="soft-left"]').click(); // Select: Setup
+  await page.locator('[data-control="soft-left"]').click(); // Select: Network
+  await expect(display(page)).toContainText('Network: DMO');
+  await page.locator('[data-control="menu"]').click(); // close menu
   await expect(display(page)).toContainText('DMO');
 
   await page.locator('[data-control="emergency"]').click();

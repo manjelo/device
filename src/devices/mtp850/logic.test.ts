@@ -4,9 +4,23 @@ import { LINK_BASE_TMO_HZ, initialState, isReceiving, linkFrequencyHz, lcdSummar
 
 const run = (...actions: Mtp850Action[]) => actions.reduce(reduce, initialState);
 const on = run({ type: 'power-on' });
+const toggleNet: Mtp850Action[] = [
+  { type: 'menu' }, { type: 'nav', dir: 'down' }, { type: 'nav', dir: 'down' }, { type: 'nav', dir: 'down' },
+  { type: 'select' }, { type: 'select' }, { type: 'menu' },
+];
+const run2 = (s: Parameters<typeof reduce>[0], ...a: Mtp850Action[]) => a.reduce(reduce, s);
 const typed = (digits: string) => [...digits].map((digit) => ({ type: 'digit', digit }) as const);
 
 describe('MTP850 logic', () => {
+  it('MENU opens the main menu; Setup > Network toggles TMO / DMO; back exits', () => {
+    const m = reduce(on, { type: 'menu' });
+    expect(lcdSummary(m)).toBe('Main Menu: [Messages], Contacts, Security, Setup, More ...');
+    const toSetup = run({ type: 'power-on' }, { type: 'menu' }, { type: 'nav', dir: 'down' }, { type: 'nav', dir: 'down' }, { type: 'nav', dir: 'down' }, { type: 'select' });
+    expect(lcdSummary(toSetup)).toContain('Setup: [Network: TMO]');
+    expect(reduce(toSetup, { type: 'select' }).net).toBe('DMO');
+    expect(reduce(reduce(toSetup, { type: 'back' }), { type: 'back' }).menu).toBeNull();
+    expect(reduce(run({ type: 'power-on' }, { type: 'menu' }, { type: 'select' }), { type: 'end' }).notice).toBeNull();
+  });
   it('starts off with nothing displayed, and ignores controls while off', () => {
     expect(renderLcd(initialState)).toBeNull();
     expect(reduce(initialState, { type: 'knob', delta: 1 })).toBe(initialState);
@@ -16,12 +30,12 @@ describe('MTP850 logic', () => {
   });
   it('the rotary knob selects talk groups and wraps within the documented counts', () => {
     expect(run({ type: 'power-on' }, { type: 'knob', delta: -1 }).tmoGroup).toBe(2048);
-    const dmo = run({ type: 'power-on' }, { type: 'menu' }, { type: 'knob', delta: -1 });
+    const dmo = run({ type: 'power-on' }, ...toggleNet, { type: 'knob', delta: -1 });
     expect(dmo.net).toBe('DMO');
     expect(dmo.dmoGroup).toBe(1024);
   });
   it('TMO and DMO remember their own group', () => {
-    const s = run({ type: 'power-on' }, { type: 'knob', delta: 1 }, { type: 'menu' }, { type: 'knob', delta: 1 }, { type: 'knob', delta: 1 }, { type: 'menu' });
+    const s = run({ type: 'power-on' }, { type: 'knob', delta: 1 }, ...toggleNet, { type: 'knob', delta: 1 }, { type: 'knob', delta: 1 }, ...toggleNet);
     expect(s.tmoGroup).toBe(2);
     expect(s.dmoGroup).toBe(3);
   });
@@ -53,7 +67,7 @@ describe('MTP850 logic', () => {
     expect(linkFrequencyHz(on)).toBe(LINK_BASE_TMO_HZ + 1);
     const heard = reduce(on, { type: 'rx-signal', from: 'x', frequencyHz: LINK_BASE_TMO_HZ + 1, active: true });
     expect(isReceiving(heard)).toBe(true);
-    expect(isReceiving(reduce(heard, { type: 'menu' }))).toBe(false); // DMO group 1 is a different channel
+    expect(isReceiving(run2(heard, ...toggleNet))).toBe(false); // DMO group 1 is a different channel
     expect(isReceiving(reduce(heard, { type: 'ptt', down: true }))).toBe(false);
   });
 });
